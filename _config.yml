@@ -1,3 +1,7 @@
 theme: jekyll-theme-cayman
 
 markdown: kramdown
+
+title: "王德魁的博客"
+
+description: "wonderkuin"
