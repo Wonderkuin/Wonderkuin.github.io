@@ -145,6 +145,6 @@ Content for chapter one.
 # 图片
 ![Lambda](http://www.wangdekui.com/images/lambda.png)
 
-# Latax公式
+# Latex公式
 
 $ e = m c^2 $
