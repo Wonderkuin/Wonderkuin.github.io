@@ -10,9 +10,17 @@
     </script>
 </head>
 
+## [<主页](https://www.wangdekui.com/)
+
 # 标题
 ## 2号
 ### 3号
+
+## 分隔线
+
+---
+___
+***
 
 # 字体
 **加粗**
@@ -52,10 +60,10 @@ void main()
     line 3 of code
 
 # 引用
-> Line1
-Line2
->> Line3
-Line4
+> Line1  
+Line2  
+>> Line3  
+Line4  
 
 # 列表
 1. Line1
@@ -143,8 +151,10 @@ Content for chapter one.
 [^label]: 这是一个带标签的脚注
 
 # 图片
-![Lambda](http://www.wangdekui.com/images/lambda.png)
+![Lambda](https://www.wangdekui.com/images/lambda.png)
 
 # Latex公式
 
 $ e = m c^2 $
+
+## [<主页](https://www.wangdekui.com/)
