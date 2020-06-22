@@ -1,12 +1,26 @@
-## [<主页](https://www.wangdekui.com/)
+# DOTween
 
+### [<主页](https://www.wangdekui.com/)
 
-# DoTween
 ```c#
 using DG.Tweening;
 ```
 
 [Ease参考](https://easings.net/cn)
+
+```python
+#无关的，普通二次曲线
+count = 0
+time = 0.5
+while(true):
+    count += deltaTime
+    r = 1 - count / time
+    r = 1 - r * r
+    start = start + (end - start) * r
+    if count > time:
+        start = end
+        break
+```
 
 ---
 
@@ -352,7 +366,7 @@ ease 的周期
 [!提示：可以通过另一个补间对该值进行补间，以实现平滑的慢动作效果]()
 
 
-### 下面的设置可以运用到所有Tween对象。 运行时，除了SetLoops 和 SetAs ，也都可使用
+#### 下面的设置可以运用到所有Tween对象。 运行时，除了SetLoops 和 SetAs ，也都可使用
 
 > SetAs(Tween tween \ TweenParams tweenParams)  
 >> id ease loops delay timeScale callbacks / TweenParams对象  
@@ -432,6 +446,7 @@ Sets the target for the tween (which can then be used as a filter with DOTween's
 `DOTween.To(()=> myInstance.aFloat, (x)=> myInstance.aFloat = x, 2.5f, 1).SetTarget(myInstance);`  
 
 > SetUpdate(UpdateType updateType, bool isIndependentupdate = false)  
+`transform.DOMoveX(4, 1).SetUpdate(UpdateType.Late, true);`  
 >> UpdateType.Normal  
 >>> 每帧更新 在Update中  
 >> UpdateType.Late  
@@ -443,6 +458,205 @@ Sets the target for the tween (which can then be used as a filter with DOTween's
 >> isIndependentUpdate  
 如果是true 忽略Unity的Time.timeScale  
 [！注意: timeScale可能是0， 此时FixedUpdate无法运行]()
+
+#### 下面是回调
+
+> OnComplete(TweenCallback callback)  
+完成时被触发 包括所有循环都完成时   
+`transform.DOMoveX(4, 1).SetComplete(MyCallback);`  
+
+> OnKill(TweenCallback callback)  
+销毁时触发  
+`transform.DOMoveX(4, 1).OnKill(MyCallback);`  
+
+> OnPlay(TweenCallback callback)  
+第一次Play 从暂停开始Play 都会触发  
+`transform.DOMoveX(4, 1).OnPlay(MyCallback);`  
+
+> OnPause(TweenCallback callback)  
+从播放变成暂停时触发 如果autoKill，完成时也触发  
+`transform.DOMoveX(4, 1).OnPause(MyCallback);`  
+
+> OnRewind(TweenCallback callback)  
+Tween的Rewinded 调用Rewind函数 倒着播放到起始状态  
+注意: Rewinding一个已经rewinded的Tween不会触发  
+`transform.DOMoveX(4, 1).OnRewind(MyCallback);`  
+
+> OnStart(TweenCallback callback)  
+开始时  
+`transform.DOMoveX(4, 1).OnStart(MyCallback);`  
+
+> OnStepComplete(TweenCallback callback)  
+每次循环完成时  
+`transform.DOMoveX(4, 1).OnStepComplete(MyCallback);`  
+
+> OnUpdate(TweenCallback callback)  
+每次Update  
+`transform.DOMoveX(4, 1).OnUpdate(MyCallback);`  
+
+> OnUpdate(TweenCallback callback)  
+每次Update  
+`transform.DOMoveX(4, 1).OnUpdate(MyCallback);`  
+
+> OnWayPointChange(TweenCallback<int> callback)  
+when a path tween's current waypoint changes  
+这是一个特殊的回调，它需要接受int类型的参数 它将是新更改的航点索引  
+`void Start() {`  
+`   transform.DOPath(waypoints, 1).OnWaypointChange(MyCallback);`  
+`}`  
+`void MyCallback(int waypointIndex) {`  
+`   Debug.Log("Waypoint index changed to " + waypointIndex);`  
+`}`  
+
+#### 嵌套的Tween仍然能正常使用回调  
+#### 可用lambda  
+`// Callback without parameters`  
+`transform.DOMoveX(4, 1).OnComplete(MyCallback);`  
+`// Callback with parameters`  
+`transform.DOMoveX(4, 1).OnComplete(() => MyCallback(someParam, someOtherParam));`  
+
+### Tweener 特别的函数和设置
+
+#### 对Sequence无效  在运行时，除了SetEase 其他无效
+
+> From(bool isRelative = false)  
+>> 必须在其他设置之前调用，除了Tween Specific Options  
+isRelative 如果是真 使用 currentValue+endValue 作为endValue  
+`// Regular TO tween`  
+`transform.DOMoveX(2, 1);`  
+`// FROM tween`  
+`transform.DOMoveX(2, 1).From();`  
+`// FROM tween but with relative FROM value`  
+`transform.DOMoveX(2, 1).From(true);`  
+
+> From(T fromValue, bool setImmediately = true)  
+>> 必须在其他设置之前调用，除了Tween Specific Options  
+直接设置初始值  
+fromValue 开始的值  
+setImmediately 如果是true，目标直接设置到初始位置，否则等带Tween开始  
+
+> SetDelay(floa delay)  
+>> 设置延迟  开始后再设置就无效了  
+如果是Sequence并真正延迟， 只是在Sequence开头添加一个间隔 和PrependInterval相同    
+`transform.DOMoveX(4, 1).SetDelay(1);`  
+
+> SetSpeedBased(bool isSpeedBased = true)  
+>> 使用速度进行Tween，如果要匀速，设置Ease.Linear  
+如果开始了，没用 Sequence，也没用  
+`transform.DOMoveX(4, 1).SetSpeedBased();`  
+
+#### 注意
+
+> 一些Tweener有特殊选项，具体取决于要Tween的类型  
+如果有特定的选项，SetOptions方法能调用，否则不可用  
+注意，通常通用方式创建补间时才可用 快捷方法中已经包含了相同的选项  
+记住SetOptions必须在补间创建功能之后立即链接，否则它将不再可用    
+
+#### Tween Specific Options
+
+> Color tween => SetOptions(bool alphaOnly)  
+仅仅tween alpha
+`DOTween.To(()=> myColor, x=> myColor = x, new Color(1,1,1,0), 1).SetOptions(true);`  
+
+> float tween => SetOptions(bool snapping)  
+顺滑地使用整数  
+`DOTween.To(()=> myFloat, x=> myFloat = x, 45, 1).SetOptions(true);`  
+
+> Quaternion tween => SetOptions(bool useShortest360Route)  
+默认true 旋转采用最短路径 且旋转角度不会超过360°  
+FALSE 将充分考虑轮换  
+如果Tween设置为FROM 则始终为FALSE  
+`DOTween.To(()=> myQuaternion, x=> myQuaternion = x, new Vector3(0,180,0), 1).SetOptions(true);`  
+
+> Rect tween => SetOptions(bool snapping)  
+顺滑地使用整数  
+`DOTween.To(()=> myRect, x=> myRect = x, new Rect(0,0,10,10), 1).SetOptions(true);`  
+
+> String tween => SetOptions(bool richTextEnabled, ScrambleMode scrambleMode = ScrambleMode.None, string scrambleChars = null)  
+>> richTextEnabled  
+默认是true 正确解释富文本 否则被视为普通文本  
+>> scramble  
+随机顺序字符拼成字符串  
+None 默认的  
+All Uppercase Lowercase Numerals 使用Scrambling  
+Custom 自定义  
+>> scrambleChars  
+自定义加扰的字符 使用尽可能多的字符,最少10个 DOTween使用快速加扰模式，使用更多字符可获得更好的结果  
+`DOTween.To(()=> myString, x=> myString = x, "hello world", 1).SetOptions(true, ScrambleMode.All);`  
+
+> Vector2/3/4 tween => SetOptions(AxisConstraint constraint, bool snapping)  
+>> constraint  
+只tween给定的轴  
+>> snapping  
+如果是true 顺滑地使用整数  
+`DOTween.To(()=> myVector, x=> myVector = x, new Vector3(2,2,2), 1).SetOptions(AxisConstraint.Y, true);`  
+
+> Vector3Array tween => SetOptions(bool snapping)  
+`DOTween.ToArray(()=> myVector, x=> myVector = x, myEndValues, myDurations).SetOptions(true);`  
+
+#### DOPath Specific Options
+
+> Path tween => SetOptions(bool closePath, AxisConstraint lockPosition = AxisConstraint.None, AxisConstraint lockRotation = AxisConstraint.None)  
+>> closePath  
+如果True path自动封闭  
+>> lockPosition   
+`AxisConstrain.X | AxisConstraint.Y`  
+>> lockRotation  
+同上  
+`transform.DOPath(path, 4f).SetOptions(true, AxisConstraint.X);`    
+
+> Path tween => SetLookAt(Vector3 lookAtPosition/lookAtTarget/lookAhead, Vector3 forwardDirection, Vector3 up = Vector3.up)
+>> lookAtPosition  位置  
+>> lookAtTarget  Transform  
+>> lookAhead  百分比 0 到 1  
+默认向前看  
+>> up  
+定义向上方向  
+`transform.DOPath(path, 4f).SetLookAt(new Vector3(2,1,3));`  
+`transform.DOPath(path, 4f).SetLookAt(someOtherTransform);`  
+`transform.DOPath(path, 4f).SetLookAt(0.01f);`  
+
+
+### TweenParams
+
+可以存储设置，交给多个Tweener  
+可以创建新的，可以Clear已有的并重新设置  
+使用SetAs方法  
+```c#
+// Store settings for an infinite looping tween with elastic ease
+TweenParams tParms = new TweenParams().SetLoops(-1).SetEase(Ease.OutElastic);
+// Apply them to a couple of tweens
+transformA.DOMoveX(15, 1).SetAs(tParms);
+transformB.DOMoveY(10, 1).SetAs(tParms);
+```
+
+#### 可以串联
+`transform.DOMoveX(45, 1).SetDelay(2).SetEase(Ease.OutQuad).OnComplete(MyCallback);`  
+
+## 控制 Tween
+
+#### 有三种方法，有相同名字 除了快捷方法有些带有DO前缀
+
+> DOTween 静态方法  
+>> 默认返回整数，代表能操作的tween的数量  
+方法有些带有All后缀，能操作所有  
+方法可以传入SetId设置的Id  
+`// Pauses all tweens`  
+`DOTween.PauseAll();`  
+`// Pauses all tweens that have "badoom" as an id`  
+`DOTween.Pause("badoom");`  
+`// Pauses all tweens that have someTransform as a target`  
+`DOTween.Pause(someTransform);`  
+
+> Tween 方法  
+>> `myTween.Pause();`  
+
+> 常规对象调用  
+>> `transform.DOPause();`  
+
+### Control 方法
+
+#### 重要 要在动画结束后使用这些方法 必须禁用autoKill 否则Tween将在完成时自动终止
 
 
 
