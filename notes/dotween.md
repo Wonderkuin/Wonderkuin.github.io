@@ -2,6 +2,8 @@
 
 ### [<主页](https://www.wangdekui.com/)
 
+### [官方文档链接](http://dotween.demigiant.com/documentation.php)
+
 ```c#
 using DG.Tweening;
 ```
@@ -141,8 +143,267 @@ The duration of the tween.
 `rigidbody.DOMove(new Vector3(2, 3, 4), 1).From();`  
 `material.DOColor(Color.green, 1).From();`  
 
+> AudioMixer
+>> DOSetFloat(string floatName, float to, float duration)
+
+> AudioSource
+>> DOFade(float to, float duration)  
+DOPitch(float to, float duration)  
+
+> Camera
+>> DOAspect(float to, float duration)  
+DOColor(float to, float duration)  
+DOFarClipPlane(float to, float duration)  
+DONearClipPlane(float to, float duration)  
+DOOrthoSize(float to, float duration)  
+DOPixelRect(Rect to, float duration)  
+DORect(Rect to, float duration)  
+DOShakePosition(float duration, float/Vector3 strength, int vibrato, float randomness, bool fadeOut) 没有FROM版本  
+DOShakeRotation(float duration, float/Vector3 strength, int vibrato, float randomness, bool fadeOut) 没有FROM版本  
+
+> Light  
+>> DOColor(Color to, float duration)  
+DOIntensity(float to, float duration) 强度  
+DoShadowStrength(float to, float duration)  
+DOBlendableColor(Color to, float duration) 允许多个DOBlendableColor同时工作 不像DOColor那样被替换  
+
+> LineRenderer
+>> DOColor(Color2 startValue, Color2 endValue, float duration)  
+将目标的颜色更改为给定的颜色  
+注意，此方法还需要插入start颜色，因为LineRenderers无法获得startColor  
+Color2是一种特殊的DOTween结构 允许在一个变量中存储两种颜色  
+`myLineRenderer.DOColor(new Color2(Color.white, Color.white), new Color2(Color.green, Color.black), 1);`  
+
+> Material  
+>> DOColor(Color to, float duration)  
+DOColor(Color to, string property, float duration)  
+``// Tween the specular value of a material``  
+``myMaterial.DOColor(Color.green, "_SpecColor", 1);``  
+DOColor(Color to, int propertyID, float duration)  
+DOFade(float to, float duration)  
+DOFade(float to, string preperty, float duration)  
+DOFade(float to, int prepertyID, float duration)  
+DOFloat(float to, string preperty, float duration)  
+DOFloat(float to, int prepertyID, float duration)  
+DOGradientColor(Gradient to, float duration)  
+``GradientColor不使用Alpha``  
+DOGradientColor(Gradient to, string property, float duration)  
+DOGradientColor(Gradient to, int propertyID, float duration)  
+DOOffset(Vector2 to, float duration)  
+DOOffset(Vector2 to, string property, float duration)  
+DOOffset(Vector2 to, int propertyID, float duration)  
+DOTiling(Vector2 to, float suration)  
+DOTiling(Vector2 to, string property, float duration)  
+DOTiling(Vector2 to, int propertyID, float duration)  
+DOVector(Vector4 to, string property, float duration)  
+DOVector(Vector4 to, int propertyID, float duration)  
+DOBlendableColor(Color to, float suration)  
+DOBlendableColor(Color to, string property, float duration)  
+``// Tween the specular value of a material``  
+``myMaterial.DOBlendableColor(Color.green, "_SpecColor", 1);``  
+DOBlendableColor(Color to, int propertyID, float duration)  
+
+> Rigidbody  
+>> DOMove(Vector3 to, float duration, bool snapping)  
+DOMoveX/Y/X(float to, float duration, bool snapping)  
+DOJump(Vector3 endValue, float jumpPower, int numJumps, float duration, bool snapping)  
+`Y轴有跳跃效果`  
+`返回一个Sequence而不是Tweener，SetSpeedBase无效`  
+`jumpPower 跳跃的最大高度=jumpPower+offsetOfY`  
+DORotate(Vector3 to, float duration, RotateMode mode)  
+`需要Vector3而不是Quaternion，可以用myQuaternion.eulerAngles`  
+`Fast 默认值 旋转以最短路线进行，角度不超过360°`  
+`FastBeyond360 旋转将超过360°`  
+`WorldAxisAdd  使用世界坐标轴和高级精度模式（如使用transform.Rotate（Space.World）时）将给定旋转添加到变换中。 在这种模式下，最终值始终被视为相对值`  
+`LocalAxisAdd 将给定的旋转添加到变换的局部轴上（例如，在Unity的编辑器中启用“本地”开关或使用transform.Rotate（Space.Self）旋转对象时）。 在这种模式下，最终值始终被视为相对值`  
+DOLookAt(Vector3 towards, float duration, AxisConstraint axisConstraint = AxisConstraint.None, Vector3 up = Vector3.up)  
+>> ProOnly  
+DOSpiral(float duration, Vector3 axis = null, SpiralMode mode = spiralMode.Expand, float speed = 1, float frequency = 10, float depth = 0, bool snapping = false)  
+`transform.DOSpiral(3, Vector3.forward, SpiralMode.ExpandThenContract, 1, 10);`  
+`螺旋升降`  
+
+> RigidBody2D   
+>> DOMove(Vector3 to, float duration, bool snapping)  
+DOMoveX/Y(float to, float duration, bool snapping)  
+DOJump(Vector3 endValue, float jumpPower, int numJumps, float duartion, bool snapping)  
+DORotate(float toAngle, float duration)  
+
+SpriteRenderer
+> DOColor(Color to, float duration)  
+DOFade(float to, float duration)  
+DOGradientColor(Gradient to, float duration)  
+DOBlendableColor(Color to, float duration)  
+
+TrailRenderer
+> DOResize(float toStartWidth, float toEndWidth, float duration)  
+DOTime(float to, float duration)  
+
+Transform
+> Move
+>> DOMove(Vector3 to, float duration, bool snapping)  
+>
+>> DOMoveX/Y/Z(float to, float duration, bool snapping)  
+>
+>> DOLocalMove(Vector3 to, float duration, bool snapping)  
+>
+>> DOLocalMoveX/Y/Z(float to, float duration, bool snapping)  
+>
+>> DOJump(Vector3 endValue, float jumpPower, int numJumps, float duration, bool snapping)  
+>
+>> DOLocalJump(Vector3 endValue, float jumpPower, int numJumps, float duration, bool snapping) 
+
+> Rotate
+>> DORotate(Vector3 to, float duration, RotateMode mode)  
+当在某些极限情况下仅沿X轴进行小旋转时，目标将摆动到位置。 如果发生这种情况，请改用DORotateQuaternion  
+mode Fast FastBeyond360 WorldAxisAdd LocalAxisAdd  
+>
+>> DORotateQuaternion(Quaternion to, float duration)  
+此方法特殊，不支持LoopType.Incremental循环  
+>
+>> DOLocalRotate(Vector3 to, float duraton, RotateMode mode)  
+>
+>> DOLocalRotateQuaternion(Quaternion to, float duration)  
+>
+>> DOLookAt(Vector3 towards, float duration, AxisConstraint axisContraint = AxisConstraint.None, Vector3 up = Vector3.up)  
+
+> Scale  
+>> DOScale(float/Vector3 to, float duration)  
+>
+>> DOScaleX/Y/Z(float to, float duration)  
+
+> Punch no FROM
+>> DOPunchPosition(Vector3 punch, float duration, int vibrato, float elasticity, bool snapping)  
+>
+>> DOPunchRotation(Vector3 punch, float duration, int vibrato, float elasticity)  
+>
+>> DOPunchScale(Vector3 punch, float duration, int vibrato, float elasticity)  
+
+> Shake no FROM  
+>> DOShakePosition(float duration, float/Vector3 strength, int vibrato, float randomness, bool snapping, bool fadeOut)  
+>
+>> DOShakeRotation(float duration, float/Vector3 strength, int vibrato, float randomness, bool fadeOut)  
+>
+>> DOShakeScale(float duration, float/Vector3 strength, int vibrato, float randomness, bool fadeOut)  
+
+> Path no FROM  
+>> DOPath(Vector3[] waypoints, float duration, PathType path = Linear, PathMode = Full3D, int resolution = 10, Color gizmoColor = null)  
+可以SetOptions和SetLookAt  
+pathType Linear CatmullRom CubicBezier  
+pathMode Ignore 3D side-scroller2D top-down2D  
+resolution 曲线点 默认为10 一般5就够了  
+立方贝塞尔路径  
+CubicBezier路径航路点必须为三的倍数，其中每三组代表：1）路径航路点； 2）IN控制点（前一个航路点上的控制点）； 3）OUT控制点（航路点上的控制点） 新的航点）。 请记住，第一个航路点始终是自动添加的，并由目标的当前位置确定（并且没有控制点）  
+![CubicBezier](http://dotween.demigiant.com/_imgs/content/dotween_path_cubicBezier.png)  
+>
+>> DOLocalPath(Vector3[] waypoints, float duration, PathType path = Linear, PathMode = Full3D, int resolution = 10, Color gizmoColor = null)
+
+> Blendable tweens
+>> DOBlendableMoveBy(Vector3 by, float duration, bool snapping)  
+`// Tween a target by moving it by 3,3,0`  
+`// while blending another move by -3,0,0 that will loop 3 times`  
+`// (using the default OutQuad ease)`  
+`transform.DOBlendableMoveBy(new Vector3(3, 3, 0), 3);`  
+`transform.DOBlendableMoveBy(new Vector3(-3, 0, 0), 1f).SetLoops(3, LoopType.Yoyo);`  
+>
+>> DOBlendableLocalMoveBy(Vector3 by, float duration, bool snapping)  
+>
+>> DOBlendableRotateBy(Vector3 by, float duration, RotateMode mode)  
+>
+>> DOBlendableLocalRotateBy(Vector3 by, float duration, RotateMode mode)  
+>
+>> DOBlendableScaleBy(Vector3 by, float duration)  
+
+> ProOnly Spiral no FROM  
+>> DOSpiral(float duration, Vector3 axis = null, SpiralMode mode = SpiralMode.Expand, float speed = 1, float frequency = 10, float depth = 0, bool snapping = false)  
+`transform.DOSpiral(3, Vector3.forward, SpiralMode.ExpandThenContract, 1, 10);`  
+
+Tween
+> DOTimeScale(float toTimeScale, float duration)  
 ---
 
+#### UGUI
+
+CanvasGroup
+> DOFade(float to, float duration)  
+
+Graphic
+> DOColor(Color to, float duration)  
+DOFade(float to, float duration)  
+DOBlendableColor(Color to, float duration)
+
+Image
+> DOColor(Color to, float duration)  
+DOFade(float to, float duration)  
+DOFillAmount(float to, float duration)  
+DOGradientColor(Gradient to, float duration)  
+DOBlendableColor(Color to, float duration)  
+
+LayoutElement
+> DOFlexibleSize(Vector2 to, float duration, bool snapping)  
+DOMinSize(Vector2 to, float duration, bool snapping)  
+DOPreferredSize(Vector2 to, float duration, bool snapping)  
+
+Outline
+> DOColor(Color to, float duration)  
+DOFade(float to, float duration)  
+
+RectTransform
+> DOAnchorMax(Vextor2 to, float duration, bool snapping)  
+DOAnchorMin(Vextor2 to, float duration, bool snapping)  
+DOAnchorPos(Vextor2 to, float duration, bool snapping)  
+DOAnchorPosX/Y(float to, float duration, bool snapping)  
+DOAnchorPos3D(Vector3 to, float duration, bool snapping)  
+DOAnchorPos3DX/Y/Z(float to, float duration, bool snapping)  
+DOJumpAnchorPos(Vector2 endValue, float jumpPower, int numJumps, float duration, bool snapping)  
+DoPivot(Vector2 to, float duration)  
+DOPivotX/Y(float to, float duration)  
+DOPunchAnchorPos(Vector2 punch, float duration, int vibrato, float elasticity, bool snapping)  
+DOShakeAnchorPos(Vector2 duration, float/Vector3 strength, int vibrato, float randomness, bool snapping, bool fadeOut)  
+DOSizeDelta(Vector2 to, float duration, bool snapping)  
+
+ScrollRect  
+> DONormalizedPos(Vector2 to, float duration, bool snapping)  
+DOHorizontalNormalizedPos(float to, float duration, bool snapping)  
+DOVerticalPos(float to, float duration, bool snapping)  
+
+Slider
+> DOValue(float to, float duration, bool snapping = false)  
+
+Text
+> DOColor(Color to, float duration)  
+DOFade(float to, float duration)  
+DOText(string to, float duration, bool = richTextEnabled = true, ScrambleMode scrambleMode = ScrambleMode.None, string scrambleChars = null) 打字机效果
+DOBlendableColor(Color to, float duration)  
+
+#### Pro only 2D Toolkit shortcuts
+
+tk2dBaseSprite
+> DOScale(Vector3 to, float duration)  
+DOScaleX/Y/Z(float to, float duration)  
+DOColor(Color to, float duration)  
+DOFade(float to, float duration)  
+
+tk2dSlicedSprite
+> DOScale(Vector2 to, float duration)  
+DOScaleX/Y(float to, float duration)  
+
+tk2dTextMesh
+> DOColor(Color to, float duration)  
+DOFade(float to, float duration)  
+DOText(string to, float duration, bool richTexEnabled = true, ScambleMode scrambleMode = ScrambleMode.None, string scrambleChars = null)  
+
+#### Pro only TextMesh Pro shortcuts
+
+> DOScale(float to, float duration)  
+DOColor(Color to, float duration)  
+DOFaceColor(Color to, float duration)  
+DOFaceFade(float to, float duration)  
+DOFade(float to, float duration)  
+DOFontSize(float to, float duration)  
+DOGlowColor(Color to, float duration)  
+DOMaxVisibleCharacters(int to, float duration)  
+DOOutlineColor(Color to, float duration)  
+DOText(string to, float duration, bool richTextEnabled = true, ScrambleMode scrambleMode = ScrambleMode.None, string scrambleChars = null)  
 
 ### 其他通用方法
 
@@ -658,6 +919,301 @@ transformB.DOMoveY(10, 1).SetAs(tParms);
 
 #### 重要 要在动画结束后使用这些方法 必须禁用autoKill 否则Tween将在完成时自动终止
 
+> CompleteAll/Complete(bool withCallbacks = false)  
+>> 直接结束 到end位置  无限循环的tween无效  
+withCallbacks 只适用于Sequence，如果是true，触发callbacks  
 
+> FlipAll/Flip()  
+>> 翻转向（如果向前移动，则向后，反之亦然）  
+
+> GotoAll/Goto(float to, bool andPlay = false)  
+>> 发送到指定位置  
+>> to
+>>> 到达的时间位置（如果高于整个补间持续时间，则补间将仅到达其结尾）  
+>> andPlay  如果true，到达指定位置后Play 否则暂停  
+
+> KillAll/Kill(bool complete = true, params object[] idsOrTargetsToExclude)  
+>> 完成时直接Kill，除非使用SetAutoKill(false)阻止  
+这个方法可以快速释放  
+
+> PauseAll/Pause()  
+
+> PlayAll/Play()  
+
+> PlayBackwardsAll/PlayBackwards()  
+
+> PlayForwardAll/PlayForward()  
+
+> RestartAll/Restart(bool includeDelay = true, float changeDelayTo = -1)  
+>> includeDelay  
+>>> 如果是真，tween包含最终的延时  
+>> changeDelayTo  
+>>> 修改延时  
+
+> RewindAll/Rewind(bool includeDelay = true)  
+
+> SmoothRewindALl/SmoothRewind()  
+“平滑后退”将补间动画设置到其起始位置（而不是跳转到其起始位置）  
+跳过所有经过的循环（LoopType.Incremental除外），同时保持动画流畅  
+如果调用仍在等待延迟发生的补间，则只需将延迟设置为0并暂停补间即可  
+注意：平滑倒带的补间将改变其播放方向  
+
+> TogglePauseAll/TogglePause()  
+Plays the tween if it was paused, pauses it if it was playing.
+
+### 特殊 Control 方法
+
+> 通用方法
+>> ForceInit()  
+如果想从tweener获取初始化之前不可用的数据 如PathLength  
+
+> 特殊  
+>> GotoWaypoint(int waypointIndex, bool andPlay = false)  
+只有Path tweener能用  并且必须是Linear  
+将Path tweener发送到指定的 index下单path  
+注意 调用此方法后，lookAt方向可能会错误  
+并且可能需要手动设置 因为它依赖于平滑的路径移动 并且不适用于包含剧烈的方向变化的跳转  
+>>> waypointIndex  
+>>>> 跳到第导航点 如果大于最后一个，就算最后一个  
+>>> andPlay  
+>>>> 如果是真 到达后play 否则pause  
+>> `myPathTween.GotoWaypoint(2);`  
+
+## 从 Tween 取出数据
+
+### 静态方法
+
+> 小心垃圾增长  
+>> static List<Tween> PausedTweens()   
+>> static List<Tween> PlayingTweens()  
+>> static List<Tween> TweensById(object id, bool playingOnly = false)   
+>>> 如果true 仅返回playing状态的Tween  
+false 全部返回  
+>> static List<Tween> TweensByTarget(object target, bool playingOnly = false)  
+注意：Tween的目标是快捷方法创建时自动设置的，而不是在使用通用方法时设置的  
+注意：DOTweenAnimation视觉编辑器会将其gameObject分配为目标  
+>> static bool IsTweening(object idOrTarget, bool alsoCheckIfPlaying = false)  
+默认false 此时只要目标处于活动状态，就返回真  
+否则必须 还在播放状态 才返回真  
+`transform.DOMoveX(45, 1); // transform is automatically added as the tween target`  
+`DOTween.IsTweening(transform); // Returns TRUE`  
+>> static int TotalPlayingTweens()  
+返回active和playing状态的Tween 即使在delay播放状态 也被认为是playing  
+`int totalPlaying = DOTween.TotalPlayingTweens();`  
+
+### Instance 方法 Tween Tweener Sequence
+
+> float fullPosition  
+Gets Sets 时间位置 包括循环 不包括延时 这不是方法  
+> int CompletedLoops()  
+`int completedLoops = myTween.CompletedLoops();`  
+> float Delay()  
+`float eventualDelay = myTween.Delay();`  
+> float Duration(bool includeLoops = true)  
+delays excluded, loops included if includeLoops is TRUE  
+注意：使用SpeedBased，Tween开始时将重新计算  
+`float loopCycleDuration = myTween.Duration(false);`  
+`float fullDuration = myTween.Duration();`  
+> float Elapsed(bool includeLoops = true)  
+返回已经过去的时间  
+delays excluded, loops included if includeLoops is TRUE  
+includeLoops 为true 返回每个循环以来的完整时间 否则当前循环周期的时间  
+`float loopCycleElapsed = myTween.Elapsed(false);`  
+`float fullElapsed = myTween.Elapsed();`  
+> float ElapsedDirectionalPercentage()  
+根据单个循环返回此补间的已用百分比 0到1  不包括延迟  
+计算最终的向后Yoyo循环为1到0，而不是0到1  
+> float ElapsedPercentage(bool includeLoops = true)  
+includeLoops 为true 包括循环 延迟始终不包含  
+`float loopCycleElapsedPerc = myTween.ElapsedPercentage(false);`  
+`float fullElapsedPerc = myTween.ElapsedPercentage();`  
+> bool IsActive()  
+`bool isActive = myTween.IsActive();`  
+> bool IsBackwards()  
+`bool isBackwards = myTween.IsBackwards();`  
+> bool IsComplete()  
+`bool isComplete = myTween.IsComplete();`  
+>> bool IsInitialized()  
+`bool isInitialized = myTween.IsInitialized();`  
+>> bool IsPlaying()  
+`bool isPlaying = myTween.IsPlaying();`  
+>> int Loops()  
+已经过的循环次数  
+`int totLoops = myTween.Loops();`  
+
+### Instance 方法 Path tweens
+
+>> Vector3 PathGetPoint(float pathPercentage)  
+根据给定的路径百分比返回路径上的一个点  
+如果 不是Path Tween 无效 未初始化 返回Vector3.zero  
+Tween开始后 pro版本的TweenEditor创建后 会直接初始化 否则  
+通过调用ForceInit强制初始化路径  
+`Vector3 myPathMidPoint = myTween.PathGetPoint(0.5f);`  
+
+>> Vector3[] PathGetDrawPoints(int subdivisionsXSegment = 10)  
+返回可用于绘制路径的点数组  
+如果 不是PathTween 无效 未初始化 返回NULL  
+注意：新的数组  
+Tween开始后 pro版本的TweenEditor创建后 会直接初始化 否则  
+通过调用ForceInit强制初始化路径  
+`Vector3[] myPathDrawPoints = myTween.PathGetDrawPoints();`  
+
+> float pathLength()  
+返回路径长度  
+如果 不是Path Tween 无效 未初始化 返回-1  
+Tween开始后 pro版本的TweenEditor创建后 会直接初始化 否则  
+通过调用ForceInit强制初始化路径  
+`float myPathLength = myTween.PathLength();`  
+
+## 协程
+
+### YieldInstructions 可以放在协程中
+### CustomYieldInstruction 自定义的
+
+> WaitForCompletion()  
+>> `Tween 被杀死  完成`  
+`IEnumerator SomeCoroutine()`  
+`{`  
+`  Tween myTween = transform.DOMoveX(45, 1);`  
+`  yield return myTween.WaitForCompletion();`  
+`  // This log will happen after the tween has completed`  
+`  Debug.Log("Tween completed!");`  
+`}`  
+
+> WaitForElapsedLoops(int elapsedLoops)  
+Tween 被杀死  经历了给定的循环次数  
+>> `IEnumerator SomeCoroutine()`  
+`{`  
+`  Tween myTween = transform.DOMoveX(45, 1).SetLoops(4);`  
+`  yield return myTween.WaitForElapsedLoops(2);`  
+`  // This log will happen after the 2nd loop has finished`  
+`  Debug.Log("Tween has looped twice!");`  
+`}`  
+
+> WaitForKill()  
+Tween 被杀死  
+>> `IEnumerator SomeCoroutine()`  
+`{`  
+`  Tween myTween = transform.DOMoveX(45, 1);`  
+`  yield return myTween.WaitForCompletion();`  
+`  // This log will happen after the tween has been killed`  
+`  Debug.Log("Tween killed!");`  
+`}`  
+
+> WaitForPosition(float position)  
+Tween 被杀死 已到达指定位置（包括循环，不包括延迟）  
+>> `IEnumerator SomeCoroutine()`  
+`{`  
+`  Tween myTween = transform.DOMoveX(45, 1);`  
+`  yield return myTween.WaitForPosition(0.3f);`  
+`  // This log will happen after the tween has played for 0.3 seconds`  
+`  Debug.Log("Tween has played for 0.3 seconds!");`  
+`}`  
+
+> WaitForRewind()  
+Tween 被杀死 倒回    
+>> `IEnumerator SomeCoroutine()`  
+`{`  
+`  Tween myTween = transform.DOMoveX(45, 1).SetAutoKill(false).OnComplete(myTween.Rewind);`  
+`  yield return myTween.WaitForRewind();`  
+`  // This log will happen when the tween has been rewinded`  
+`  Debug.Log("Tween rewinded!");`  
+`}`  
+
+> WaitForStart()  
+Tween 被杀死  
+started (meaning when the tween is set in a playing state the first time, after any eventual delay`  
+>> `IEnumerator SomeCoroutine()`  
+`{`  
+`  Tween myTween = transform.DOMoveX(45, 1);`  
+`  yield return myTween.WaitForStart();`  
+`  // This log will happen when the tween starts`  
+`  Debug.Log("Tween started!");`  
+`}`  
+
+## 其他方法
+
+**DOTween 静态方法**
+
+> static DOTween.Clear(bool destroy = false)  
+杀死所有Tween 清除对象池 重置最大容量到default  
+destroy true时，也会销毁DOTween的gameObject并重置初始化内容 下次需要重新初始化  
+
+> static DOTween.ClearCachedTweens()  
+清理对象池  
+
+> static DOTween.Validate()  
+> 验证所有活动补间并删除最终无效的补间 通常是因为其目标已被破坏  
+这是一个昂贵的操作 谨慎使用
+其实完全不需要使用它，特别是在安全模式为ON的情况下  
+
+> static DOTween.ManualUpdate(float delatTIme, float unscaledDeltaTime)  
+更新所有UpdateType.Manual的Tween  
+
+### Instance methods  Tween Tweener Sequence
+
+> ChangeEndValue(newEndValue, float duration = -1, bool snapStartValue = false)  
+更改Tween的最终值并倒回（不暂停）  
+对Sequence内部的Tweeners无效  
+注意：不适用于仅将一个值从一个点动画化为另一个点（例如DOLookAt）  
+注意：对于单个轴的快捷方法 DOMoveX/Y/Z DOScaleX/YZ等  必须传递完整的Vector2/3/4  
+>> duration  
+>>> 如果大于0 ，一样修改duration  
+>> snapStartValue  
+>>> 如果是true，将当前值设置为初始值  
+
+> ChangeStartValue(newStartValue, float duration = -1)  
+>> 更改初始值并倒回 此外同上
+
+> ChangeValues(newStartValue, newEndValue, float duration = -1)  
+>> 更改初始值和最终值并倒回 此外同上  
+
+## 编辑器方法
+
+在编辑器预览Tween
+
+> sattic DOTweenEditorPreview.PrepareTweenForPreview(bool clearCallbacks = true, bool preventAutoKill = true, bool andPlay = true)  
+要设置UpdateType为Manual  
+clearCallbacks  建议true  
+preventAutoKill 如果是true 将阻止自动销毁  
+andPlay true则立刻play  
+
+> static DOTweenEditorPreview.Start(Action onPreviewUpdate = null)  
+在编辑器中启动循环 在playMode期间无效  
+在调用此方法之前，必须通过DOTweenEditorPreview.PrepareTweenForPreview将Tween添加到预览  
+
+> static DOTweenEditorPreview.Stop()  
+停止更新 释放所有回调  
+
+## 虚方法  
+
+不可用于Sequence  
+
+> static Tweener DOVirtual.Float(float from, flaot to, float duration, TweenCalback<float> onVirtualUpdate)  
+Tweens a virtual float.  
+You can add regular settings to the generated tween, but do not use SetUpdate or you will overwrite the onVirtualUpdate parameter.  
+**from** The value to start from.  
+**to** The value to tween to.  
+**duration** The duration of the tween.  
+**onVirtualUpdate** A callback which must accept a parameter of type float, called at each update.  
+
+> static Tweener DOVirtual.EaseValue(float from, float to, float lifetimePercentage, Ease easeType \ AnimationCurve animCurve)  
+Returns a value based on the given ease and lifetime percentage (0 to 1).  
+Comes with various overloads to allow an AnimationCurve ease or custom overshoot/period/amplitude.  
+**from** The value to start from when lifetimePercentage is 0.  
+**to** The value to reach when lifetimePercentage is 1.  
+**lifetimePercentage** The time percentage (0 to 1) at which the value should be taken.  
+**easeType** The type of ease.  
+
+> static Tween DOVirtual.DelayedCall(float delay, TweenCallback callback, bool ignoreTimeScale = true)  
+Fires the given callback after the given time.  
+Returns a Tween so you can eventually store it and pause/kill/etc it.  
+**delay** Callback delay.  
+**callback** Callback to fire when the delay has expired.  
+**ignoreTimeScale** If TRUE (default) ignores Unity's timeScale.  
+`// Example 1: calling another method after 1 second`  
+`DOVritual.DelayedCall(1, MyOtherMethodName);`  
+`// Example 2: using a lambda to throw a log after 1 second`  
+`DOVirtual.DelayedCall(1, ()=> Debug.Log("Hello world");`  
 
 ## [<主页](https://www.wangdekui.com/)
