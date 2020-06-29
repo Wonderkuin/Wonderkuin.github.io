@@ -6,3 +6,5 @@
 ## [Markdown语法](./notes/markdown.md)
 
 ## [DoTween文档](./notes/dotween.md)
+
+## [SFML Essentials](./notes/sfmlEssentials.md)
