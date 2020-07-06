@@ -251,5 +251,171 @@ int main()
 
 ```
 
+## Chapter 2
+
+
+### image加载
+```c++
+#include <SFML/Graphics.hpp>
+
+int main()
+{
+	sf::RenderWindow window(sf::VideoMode(480, 180), "Bad Squares");
+	window.setFramerateLimit(60); // target frames per second
+
+	// Color
+	sf::Image image1;
+	image1.create(50, 50, sf::Color::Red);
+
+	// Pixels
+	const unsigned int kWidth = 5, kHeight = 5;
+	sf::Uint8 pixels[kWidth * kHeight * 4];
+	for (int index = 0, i = 0; i < kWidth; i++)
+		for (int j = 0; j < kHeight; j++)
+		{
+			pixels[index++] = 255;
+			pixels[index++] = 0;
+			pixels[index++] = 0;
+			pixels[index++] = 255;
+		}
+	sf::Image image2;
+	image2.create(kWidth, kHeight, pixels);
+
+	auto pixel_11 = image2.getPixel(1, 1);
+	image2.setPixel(1, 1, sf::Color::Yellow);
+
+	const sf::Uint8* pixelsPtr = image2.getPixelsPtr();
+
+	image2.flipHorizontally();
+
+	image2.saveToFile("./img2.png");
+
+	// Image
+	sf::Image image3;
+	if (!image3.loadFromFile("leaf.png"))
+		return -1;
+
+	while (window.isOpen())
+	{
+
+		window.clear(sf::Color::Black);
+
+		//window.draw();
+
+		window.display();
+	}
+
+	return 0;
+}
+
+```
+
+### texture加载
+```c++
+#include <SFML/Graphics.hpp>
+
+int main()
+{
+	sf::RenderWindow window(sf::VideoMode(1280, 800), "Bad Squares");
+	window.setFramerateLimit(60); // target frames per second
+
+	unsigned int maxSize = sf::Texture::getMaximumSize();//texture.create(
+
+	sf::Texture texture;
+	//if (!texture.loadFromFile("leaf.png", sf::IntRect(0, 0, 320, 100)))
+	if (!texture.loadFromFile("leaf.png"))
+		return -1;
+
+	sf::Image image;
+	image.create(50, 50, sf::Color::Red);
+	sf::Texture texture2;
+	texture2.loadFromImage(image);
+
+	sf::Image image2;
+	image2 = texture2.copyToImage(); // From GPU to RAM
+
+	sf::Vector2u textureSize = texture.getSize();
+	float rectWidth = static_cast<float>(textureSize.x);
+	float rectHeight = static_cast<float>(textureSize.y);
+	sf::RectangleShape rectShape(sf::Vector2f(rectWidth, rectHeight));
+	rectShape.setTexture(&texture);
+
+	while (window.isOpen())
+	{
+
+		window.clear(sf::Color::Black);
+		window.draw(rectShape);
+		window.display();
+	}
+
+	return 0;
+}
+```
+
+### 显示一部分texture
+```c++
+#include <SFML/Graphics.hpp>
+
+int main()
+{
+	sf::RenderWindow window(sf::VideoMode(400, 400), "Bad Squares");
+	window.setFramerateLimit(60); // target frames per second
+
+	sf::Texture texture;
+	if (!texture.loadFromFile("leaf.png"))
+		return -1;
+
+	sf::ConvexShape shape(5);
+	shape.setPoint(0, sf::Vector2f(0, 0));
+	shape.setPoint(1, sf::Vector2f(200, 0));
+	shape.setPoint(2, sf::Vector2f(180, 120));
+	shape.setPoint(3, sf::Vector2f(100, 200));
+	shape.setPoint(4, sf::Vector2f(20, 120));
+	shape.setTexture(&texture);
+	shape.setOutlineThickness(2);
+	shape.setOutlineColor(sf::Color::Red);
+	shape.move(20, 20); //Move it, so the outline is clearly visible
+
+	while (window.isOpen())
+	{
+		window.clear(sf::Color::Black);
+		window.draw(shape);
+		window.display();
+	}
+
+	return 0;
+}
+
+```
+
+### 裁切texture
+
+```c++
+#include <SFML/Graphics.hpp>
+
+int main()
+{
+	sf::RenderWindow window(sf::VideoMode(800, 800), "Bad Squares");
+	window.setFramerateLimit(60); // target frames per second
+
+	sf::Texture texture;
+	texture.loadFromFile("tile.png");
+	texture.setRepeated(true);
+	//texture.setSmooth(true);
+
+	sf::RectangleShape rectShape(sf::Vector2f(128 * 3, 221 * 2));
+	rectShape.setTextureRect(sf::IntRect(0, 0, 128 * 3, 221 * 2));
+	rectShape.setTexture(&texture);
+
+	while (window.isOpen())
+	{
+		window.clear(sf::Color::Black);
+		window.draw(rectShape);
+		window.display();
+	}
+
+	return 0;
+}
+```
 
 ## [<主页](https://www.wangdekui.com/)
