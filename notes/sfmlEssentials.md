@@ -418,4 +418,156 @@ int main()
 }
 ```
 
+### 资源管理
+
+```c++
+//AssetManager.h
+#ifndef ASSET_MANAGER_H
+#define ASSET_MANAGER_H
+
+#include <SFML/Graphics.hpp>
+#include <map>
+
+class AssetManager
+{
+public:
+	AssetManager();
+
+	static sf::Texture& GetTexture(std::string const& filename);
+
+private:
+	std::map<std::string, sf::Texture> m_Textures;
+
+	static AssetManager* sInstance;
+};
+
+#endif
+
+//AssetManager.cpp
+#include "AssetManager.h"
+#include <assert.h>
+
+AssetManager* AssetManager::sInstance = nullptr;
+
+AssetManager::AssetManager()
+{
+	assert(sInstance == nullptr);
+	sInstance = this;
+}
+
+sf::Texture& AssetManager::GetTexture(std::string const& filename)
+{
+	auto& texMap = sInstance->m_Textures;
+
+	auto pairFound = texMap.find(filename);
+
+	if (pairFound != texMap.end())
+		return pairFound->second;
+	else
+	{
+		auto& texture = texMap[filename];
+		texture.loadFromFile(filename);
+		return texture;
+	}
+}
+
+//main.cpp
+#include <SFML/Graphics.hpp>
+#include "AssetManager.h"
+
+int main()
+{
+	sf::RenderWindow window(sf::VideoMode(640, 480), "AssetManager");
+	AssetManager manager;
+
+	sf::Sprite sprite1 = sf::Sprite(AssetManager::GetTexture("egg.png"));
+	sf::Sprite sprite2 = sf::Sprite(AssetManager::GetTexture("egg.png"));
+	sf::Sprite sprite3 = sf::Sprite(AssetManager::GetTexture("egg.png"));
+
+	sprite1.setScale(sf::Vector2f(0.5, 0.5));
+
+	while (window.isOpen())
+	{
+		window.clear(sf::Color::Black);
+		window.draw(sprite1);
+		window.display();
+	}
+
+	return 0;
+}
+
+```
+
+### Time
+
+```c++
+#include <SFML/Graphics.hpp>
+#include <iostream>
+
+int main()
+{
+	sf::Time time = sf::seconds(5) + sf::milliseconds(100);
+	if (time > sf::seconds(5.09))
+		std::cout << "It works";
+
+	sf::RenderWindow window(sf::VideoMode(640, 480), "Time");
+
+	sf::Time elapsedTime;
+	sf::Time deltaTime;
+	sf::Clock clock;
+	while (window.isOpen())
+	{
+		//deltaTime = clock.getElapsedTime();
+		deltaTime = clock.restart();
+		elapsedTime += deltaTime;
+
+		if (elapsedTime > sf::seconds(5))
+			window.close();
+
+		float dtAsSeconds = deltaTime.asSeconds();
+
+		window.clear(sf::Color::Black);
+		window.display();
+	}
+}
+```
+
+### Animation
+
+```c++
+#include <SFML/Graphics.hpp>
+#include "AssetManager.h"
+
+int main()
+{
+	sf::RenderWindow window(sf::VideoMode(640, 480), "Time");
+	AssetManager am;
+
+	sf::Vector2i spriteSize(32, 32);
+	sf::Sprite sprite(am.GetTexture("crystal/crystal-qubodup-ccby3-32-green.png"));
+	sprite.setTextureRect(sf::IntRect(0, 0, spriteSize.x, spriteSize.y));
+
+	int framesNum = 8;
+	float animationDuration = 1;
+
+	sf::Time elapsedTime;
+	sf::Clock clock;
+	while (window.isOpen())
+	{
+		sf::Time deltaTime = clock.restart();
+
+		elapsedTime += deltaTime;
+		float timeAsSeconds = elapsedTime.asSeconds();
+
+		int animFrame = static_cast<int>((timeAsSeconds / animationDuration) * framesNum) % framesNum;
+
+		sprite.setTextureRect(sf::IntRect(animFrame * spriteSize.x, 0, spriteSize.x, spriteSize.y));
+
+		window.clear(sf::Color::Black);
+		window.draw(sprite);
+		window.display();
+	}
+}
+```
+
 ## [<主页](https://www.wangdekui.com/)
