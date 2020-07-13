@@ -2,6 +2,8 @@
 
 ### [<主页](https://www.wangdekui.com/)
 
+## [Talk is cheap, Show me the code]().
+
 ## Chapter 1
 
 ### Window and Handle Input
@@ -711,7 +713,7 @@ void Animator::Update(sf::Time const& dt)
 	if (m_CurrentAnimation->m_Looping)
 		currentFrame %= numFrames;
 	else if (currentFrame >= numFrames)
-		currentFrame = numFrames;
+		currentFrame = numFrames - 1;
 
 	m_Sprite.setTextureRect(m_CurrentAnimation->m_Frames[currentFrame]);
 }
@@ -745,5 +747,550 @@ int main()
 	}
 }
 ```
+
+```c++
+#include <SFML/Graphics.hpp>
+#include "AssetManager.h"
+#include "Animator.h"
+
+int main()
+{
+	sf::RenderWindow window(sf::VideoMode(640, 480), "Time");
+	AssetManager am;
+
+	sf::Vector2i spriteSize(32, 32);
+	sf::Sprite sprite;
+	Animator animator(sprite);
+	auto& idleAnimation = animator.CreateAnimation("Idle", "egg.png", sf::seconds(1), true);
+	idleAnimation.AddFrames(sf::Vector2i(0, 0), spriteSize, 8);
+
+	auto& idleAnimationShort = animator.CreateAnimation("IdleShort", "crystal.png", sf::seconds(0.5f), true);
+	idleAnimationShort.AddFrames(sf::Vector2i(0, 0), spriteSize, 8);
+
+	auto& idleAnimationSmall = animator.CreateAnimation("IdleSmall", "egg.png", sf::seconds(1.5f), true);
+	idleAnimationSmall.AddFrames(sf::Vector2i(64, 0), spriteSize, 3);
+	idleAnimationSmall.AddFrames(sf::Vector2i(64, 32), spriteSize, 2);
+
+	auto& idleAnimationOnce = animator.CreateAnimation("IdleOnce", "crystal.png", sf::seconds(0.5f), false);
+	idleAnimationOnce.AddFrames(sf::Vector2i(0, 0), spriteSize, 8);
+
+	sf::Clock clock;
+	while (window.isOpen())
+	{
+		sf::Event ev;
+		while (window.pollEvent(ev))
+		{
+			if (ev.type == sf::Event::KeyPressed)
+			{
+				if (ev.key.code == sf::Keyboard::Key::Num1)
+					animator.SwitchAnimation("Idle");
+				else if (ev.key.code == sf::Keyboard::Key::Num2)
+					animator.SwitchAnimation("IdleShort");
+				else if (ev.key.code == sf::Keyboard::Key::Num3)
+					animator.SwitchAnimation("IdleSmall");
+				else if (ev.key.code == sf::Keyboard::Key::Num4)
+					animator.SwitchAnimation("IdleOnce");
+			}
+		}
+
+		sf::Time deltaTime = clock.restart();
+
+		animator.Update(deltaTime);
+
+		window.clear(sf::Color::Black);
+		window.draw(sprite);
+		window.display();
+	}
+}
+```
+
+### Camera
+
+```c++
+#include <SFML/Graphics.hpp>
+#include "AssetManager.h"
+#include "Animator.h"
+
+int main()
+{
+	sf::RenderWindow window(sf::VideoMode(640, 480), "Time");
+	AssetManager am;
+
+	auto wSize = window.getSize();
+	sf::View view(sf::FloatRect(0, 0, wSize.x, wSize.y));
+
+	view.setCenter(sf::Vector2f(0, 0));
+
+	window.setView(view);
+
+	sf::Vector2f spriteSize = sf::Vector2f(32, 32);
+	sf::Sprite sprite(AssetManager::GetTexture("crystal.png"));
+	sprite.setOrigin(spriteSize * 0.5f);
+	sprite.setTextureRect(sf::IntRect(0, 0, spriteSize.x, spriteSize.y));
+
+	while (window.isOpen())
+	{
+		window.clear(sf::Color::Black);
+		window.draw(sprite);
+		window.display();
+	}
+}
+```
+
+```c++
+// Viewport
+#include <SFML/Graphics.hpp>
+#include "AssetManager.h"
+#include "Animator.h"
+
+int main()
+{
+	sf::RenderWindow window(sf::VideoMode(400, 400), "Time");
+	AssetManager am;
+
+	sf::Vector2u wSize = window.getSize();
+	sf::View view(sf::Vector2f(0, 0), sf::Vector2f(wSize.x, wSize.y));
+
+	view.setRotation(45);
+	//view.setSize(wSize.x * 2, wSize.y);
+	//view.setSize(wSize.x, wSize.y * 2);
+	view.zoom(0.8);
+	view.move(50, 50);
+
+	window.setView(view);
+
+	sf::Vector2f spriteSize = sf::Vector2f(32, 32);
+	sf::Texture& texture = AssetManager::GetTexture("crystal.png");
+
+	//Top left
+	sf::Sprite sprite1(texture);
+	sprite1.setOrigin(spriteSize * 0.5f);
+	sprite1.setPosition(sf::Vector2f(-80, -80));
+	sprite1.setTextureRect(sf::IntRect(0, 0, spriteSize.x, spriteSize.y));
+
+	//Top left
+	sf::Sprite sprite2(texture);
+	sprite2.setOrigin(spriteSize * 0.5f);
+	sprite2.setPosition(sf::Vector2f(80, -80));
+	sprite2.setTextureRect(sf::IntRect(0, 0, spriteSize.x, spriteSize.y));
+
+	//Top left
+	sf::Sprite sprite3(texture);
+	sprite3.setOrigin(spriteSize * 0.5f);
+	sprite3.setPosition(sf::Vector2f(80, 80));
+	sprite3.setTextureRect(sf::IntRect(0, 0, spriteSize.x, spriteSize.y));
+
+	//Top left
+	sf::Sprite sprite4(texture);
+	sprite4.setOrigin(spriteSize * 0.5f);
+	sprite4.setPosition(sf::Vector2f(-80, 80));
+	sprite4.setTextureRect(sf::IntRect(0, 0, spriteSize.x, spriteSize.y));
+
+	while (window.isOpen())
+	{
+		window.clear(sf::Color::Black);
+		window.draw(sprite1);
+		window.draw(sprite2);
+		window.draw(sprite3);
+		window.draw(sprite4);
+		window.display();
+	}
+}
+```
+
+```c++
+// multiple views 书上第一次没有给出具体实现
+#include <SFML/Graphics.hpp>
+#include "AssetManager.h"
+#include "Animator.h"
+
+int main()
+{
+	sf::RenderWindow window(sf::VideoMode(400, 400), "Time");
+	AssetManager am;
+
+	sf::Vector2u wSize = window.getSize();
+
+	sf::View view1(sf::Vector2f(0, 0), sf::Vector2f(wSize.x, wSize.y));
+	view1.setViewport(sf::FloatRect(0, 0, 0.5f, 0.5f));
+
+	sf::View view2(sf::Vector2f(0, 0), sf::Vector2f(wSize.x, wSize.y));
+	view2.setViewport(sf::FloatRect(0.5, 0, 1, 0.5f));
+
+	sf::View view3(sf::Vector2f(0, 0), sf::Vector2f(wSize.x, wSize.y));
+	view3.setViewport(sf::FloatRect(0, 0.5, 0.5f, 1));
+
+	sf::View view4(sf::Vector2f(0, 0), sf::Vector2f(wSize.x, wSize.y));
+	view4.setViewport(sf::FloatRect(0.5f, 0.5f, 1, 1));
+
+	std::vector<sf::View> viewList;
+	viewList.push_back(view1);
+	viewList.push_back(view2);
+	viewList.push_back(view3);
+	viewList.push_back(view4);
+
+	sf::Vector2f spriteSize = sf::Vector2f(32, 32);
+	sf::Texture& texture = AssetManager::GetTexture("crystal.png");
+
+	//Top left
+	sf::Sprite sprite1(texture);
+	sprite1.setOrigin(spriteSize * 0.5f);
+	sprite1.setPosition(sf::Vector2f(-80, -80));
+	sprite1.setTextureRect(sf::IntRect(0, 0, spriteSize.x, spriteSize.y));
+
+	//Top left
+	sf::Sprite sprite2(texture);
+	sprite2.setOrigin(spriteSize * 0.5f);
+	sprite2.setPosition(sf::Vector2f(80, -80));
+	sprite2.setTextureRect(sf::IntRect(0, 0, spriteSize.x, spriteSize.y));
+
+	//Top left
+	sf::Sprite sprite3(texture);
+	sprite3.setOrigin(spriteSize * 0.5f);
+	sprite3.setPosition(sf::Vector2f(80, 80));
+	sprite3.setTextureRect(sf::IntRect(0, 0, spriteSize.x, spriteSize.y));
+
+	//Top left
+	sf::Sprite sprite4(texture);
+	sprite4.setOrigin(spriteSize * 0.5f);
+	sprite4.setPosition(sf::Vector2f(-80, 80));
+	sprite4.setTextureRect(sf::IntRect(0, 0, spriteSize.x, spriteSize.y));
+
+	while (window.isOpen())
+	{
+		window.clear(sf::Color::Black);
+
+		for (auto it = viewList.begin(); it != viewList.end(); ++it)
+		{
+			window.setView(*it);
+
+			// need todo something
+			window.draw(sprite1);
+			window.draw(sprite2);
+			window.draw(sprite3);
+			window.draw(sprite4);
+
+		}
+		window.display();
+	}
+}
+```
+
+### Mapping coordinates
+
+```c++
+//无例子，未验证
+sf::Event ev;
+while (window.pollEvent(ev))
+{
+	if (ev.type == sf::Event::MouseButtonPressed)
+	{
+		sf::Vector2f sceneCoords = window.mapPixelToCoords(
+			sf::Vector2i(ev.mouseButton.x, ev.mouseButton.y));
+	}
+}
+```
+
+### Using OpenGL
+
+```c++
+//multiple windows need to set Window::setActive and start using OpenGL.
+#include <SFML/Window.hpp>
+#include <SFML/OpenGL.hpp>
+#include <SFML/Graphics.hpp>
+
+#include <iostream>
+
+int main()
+{
+	sf::ContextSettings settings;
+	settings.depthBits = 24;
+	settings.stencilBits = 8;
+	settings.majorVersion = 3;
+	settings.minorVersion = 3;
+	settings.antialiasingLevel = 1;
+	sf::RenderWindow window(sf::VideoMode(640, 480), "OpenGL", sf::Style::Default, settings);
+
+	auto wSettings = window.getSettings();
+
+	std::cout << "depthBits: " << wSettings.depthBits << std::endl;
+	std::cout << "stencilBits: " << wSettings.stencilBits << std::endl;
+	std::cout << "antialiasingLevel: " << wSettings.antialiasingLevel << std::endl;
+	std::cout << "version: " << wSettings.majorVersion << "." << wSettings.minorVersion << std::endl;
+
+	while (window.isOpen())
+	{
+		glClearColor(1, 0, 0, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//Draw shape using OpenGL
+		window.pushGLStates();
+		//Draw shape using SFML
+		window.popGLStates();
+		//Continue darwing using OpenGL
+		//SwapBuffers
+		window.display();
+	}
+
+	return 0;
+}
+```
+
+## Sound and Text
+
+```c++
+#include <SFML/Window.hpp>
+#include <SFML/Audio.hpp>
+
+int main()
+{
+	sf::Window window(sf::VideoMode(640, 480), "Audio");
+
+	sf::SoundBuffer sBuffer;
+	if (!sBuffer.loadFromFile("ear0-17190.flac"))
+		return -1;
+
+	//sBuffer.loadFromMemory
+	//sBuffer.loadFromStream
+	//sBuffer.loadFromSamples
+
+	sf::Sound sound(sBuffer);
+	sound.play();
+	sound.pause();
+	sound.stop();
+
+	sound.setLoop(true);
+	sf::Time startTime = sf::milliseconds(100);
+	sound.setPlayingOffset(startTime);
+
+	while (window.isOpen())
+	{
+		sf::SoundSource::Status status = sound.getStatus();
+		if (status == sf::SoundSource::Status::Stopped)
+			break;
+	}
+
+	return 0;
+}
+```
+
+### AssetManager2.0
+
+```c++
+// AssetManager.h
+#ifndef ASSET_MANAGER_H
+#define ASSET_MANAGER_H
+
+#include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
+#include <map>
+
+class AssetManager
+{
+public:
+	AssetManager();
+	static sf::Texture& GetTexture(std::string const& filename);
+	static sf::SoundBuffer& GetSoundBuffer(std::string const& filename);
+
+private:
+	std::map<std::string, sf::Texture> m_Textures;
+	std::map<std::string, sf::SoundBuffer> m_SoundBuffers;
+
+	static AssetManager* sInstance;
+};
+
+#endif
+// AssetManger.cpp
+#include "AssetManager.h"
+#include <assert.h>
+
+AssetManager* AssetManager::sInstance = nullptr;
+
+AssetManager::AssetManager()
+{
+	assert(sInstance == nullptr);
+	sInstance = this;
+}
+
+sf::Texture& AssetManager::GetTexture(std::string const& filename)
+{
+	auto& texMap = sInstance->m_Textures;
+
+	auto pairFound = texMap.find(filename);
+
+	if (pairFound != texMap.end())
+		return pairFound->second;
+	else
+	{
+		auto& texture = texMap[filename];
+		texture.loadFromFile(filename);
+		return texture;
+	}
+}
+
+sf::SoundBuffer& AssetManager::GetSoundBuffer(std::string const& filename)
+{
+	auto& sBufferMap = sInstance->m_SoundBuffers;
+
+	auto pairFound = sBufferMap.find(filename);
+	if (pairFound != sBufferMap.end())
+	{
+		return pairFound->second;
+	}
+	else
+	{
+		auto& sBuffer = sBufferMap[filename];
+		sBuffer.loadFromFile(filename);
+		return sBuffer;
+	}
+}
+// main.cpp
+#include <SFML/Window.hpp>
+#include <SFML/Audio.hpp>
+#include "AssetManager.h"
+
+int main()
+{
+	sf::Window window(sf::VideoMode(640, 480), "Audio");
+	AssetManager manager;
+
+	sf::Sound sound(AssetManager::GetSoundBuffer("ear0-17190.flac"));
+	sound.play();
+
+	while (window.isOpen())
+	{
+		sf::SoundSource::Status status = sound.getStatus();
+		if (status == sf::SoundSource::Status::Stopped)
+			break;
+	}
+
+	return 0;
+}
+```
+
+### Music
+
+```c++
+#include <SFML/Window.hpp>
+#include <SFML/Audio.hpp>
+#include "AssetManager.h"
+
+int main()
+{
+	sf::Window window(sf::VideoMode(640, 480), "Audio");
+	AssetManager manager;
+
+	sf::Music music;
+	if (!music.openFromFile("ear0-17190.flac"))
+		return -1;
+
+	music.play();
+
+	while (window.isOpen())
+	{
+		sf::SoundSource::Status status = music.getStatus();
+		if (status == sf::SoundSource::Status::Stopped)
+			break;
+	}
+
+	return 0;
+}
+```
+
+### Listener
+
+```c++
+#include <SFML/Window.hpp>
+#include <SFML/Audio.hpp>
+#include "AssetManager.h"
+
+#define PI_RADIANS 3.14159f
+#define PI_DEGRESS 180.0f
+
+int main()
+{
+	sf::Window window(sf::VideoMode(640, 480), "Audio");
+	AssetManager manager;
+
+	sf::Sprite heroSprite(AssetManager::GetTexture("leaf.png"));
+
+	sf::Sound growl(AssetManager::GetSoundBuffer("ear0-17190.flac"));
+
+	growl.setRelativeToListener(true);
+	growl.setPosition(0, 0, 0);
+
+	//从该位置听到最大音量，不可为0
+	growl.setMinDistance(-1);//default
+	//衰减速度
+	growl.setAttenuation(1);//default
+
+	while (window.isOpen())
+	{
+		sf::Vector2f heroPos = heroSprite.getPosition();
+		sf::Listener::setPosition(heroPos.x, heroPos.y, 0);
+
+		//growl.setPosition(heroPos.x, heroPos.y, 0);
+
+		float heroRot = heroSprite.getRotation() * PI_RADIANS / PI_DEGRESS;
+		sf::Listener::setDirection(std::cos(heroRot), std::sin(heroRot), 0);
+	}
+
+	return 0;
+}
+```
+
+### 例子
+
+```c++
+#include <SFML/Window.hpp>
+#include <SFML/Audio.hpp>
+#include "AssetManager.h"
+
+int main()
+{
+	sf::RenderWindow window(sf::VideoMode(640, 480), "Audio");
+	AssetManager manager;
+
+	sf::Listener::setPosition(window.getSize().x / 2.f, window.getSize().y / 2.f, 0);
+	sf::Listener::setDirection(0, -1, 0);
+
+	sf::CircleShape shapeListener(20);
+	shapeListener.setFillColor(sf::Color::Red);
+
+	sf::Sound sound(AssetManager::GetSoundBuffer("ear0-17190.flac"));
+	sound.setMinDistance(window.getSize().x / 4.f);
+	sound.setAttenuation(20.f);
+
+	sf::CircleShape shapeSound(10);
+	shapeSound.setFillColor(sf::Color::White);
+
+	while (window.isOpen())
+	{
+		sf::Event ev;
+		while (window.pollEvent(ev))
+		{
+			if (ev.type == sf::Event::Closed)
+				window.close();
+			else if (ev.type == sf::Event::MouseButtonPressed)
+				sound.play();
+		}
+
+		sf::Vector2f listenerPos(sf::Listener::getPosition().x, sf::Listener::getPosition().y);
+		shapeListener.setPosition(listenerPos);
+
+		sf::Vector2f soundPos(static_cast<sf::Vector2f>(sf::Mouse::getPosition(window)));
+		sound.setPosition(soundPos.x, soundPos.y, 0);
+		shapeSound.setPosition(soundPos);
+
+		window.clear();
+		window.draw(shapeListener);
+		window.draw(shapeSound);
+		window.display();
+	}
+
+	return 0;
+}
+```
+
 
 ## [<主页](https://www.wangdekui.com/)
