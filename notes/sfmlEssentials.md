@@ -1292,5 +1292,49 @@ int main()
 }
 ```
 
+### Text 以下都是无环境的
+
+```c++
+sf::Font font;
+if (!font.loadFromFile("awesome.ttf"))
+	return -1;
+sf::Text text("Look at my awesome font.", font);
+text.setCharacterSize(30);//default
+
+sf::String someString;
+text.setString(someString);
+text.setString("This is a normal string");
+text.setString(L"This is a wide-char string");
+text.setString(std::string("This is a normal string"));
+text.setString(std::wstring(L"This is a wide-char string"));
+
+text.setStyle(sf::Text::Bold | sf::Text::Underlined);
+//sf::Text::Regular;
+//sf::Text::Italic;
+
+text.setColor(sf::Color::Red);
+
+//AssetManager
+
+public:
+	static sf::Font& GetFont(std::string const& filename);
+private:
+	std::map<std::string, sf::Font> m_Fonts;
+
+sf::Font& AssetManager::GetFont(std::string const& filename)
+{
+	auto& fontMap = sInstance->m_Fonts;
+	auto pairFound = fontMap.find(filename);
+	if (pairFound != fontMap.end())
+		return pairFound->second;
+	else
+	{
+		auto& font = fontMap[filename];
+		font.loadFromFile(filename);
+		return font;
+	}
+}
+
+```
 
 ## [<主页](https://www.wangdekui.com/)

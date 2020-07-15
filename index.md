@@ -8,3 +8,5 @@
 ## [DoTween文档](./notes/dotween.md)
 
 ## [SFML Essentials](./notes/sfmlEssentials.md)
+
+## [Apprenticeship Patterns](./notes/apprentPatterns.md)
