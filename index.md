@@ -10,3 +10,5 @@
 ## [SFML Essentials](./notes/sfmlEssentials.md)
 
 ## [Apprenticeship Patterns](./notes/apprentPatterns.md)
+
+## [Unity 2017 Game Optimizaton](./notes/unityOptimization.md)
