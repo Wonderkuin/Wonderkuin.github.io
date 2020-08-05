@@ -37,6 +37,13 @@ git config user.email "wonderkuin@all.com"
 git config --global core.editor emacs
 ```
 
+### 别名
+```
+git config --global alias.st status
+# 定义外部命令
+git config --global alias.visual '!gitk'
+```
+
 ---
 
 ## Help
@@ -69,9 +76,9 @@ git push origin master
 
 ### Clone
 ```
-git clone https://github.com/aseprite/aseprite
+git clone https://github.com/aseprite/aseprite.git
 
-git clone https://github.com/aseprite/aseprite myAseprite
+git clone https://github.com/aseprite/aseprite.git myAseprite
 
 git clone --recurse-submodules
 
@@ -80,6 +87,26 @@ cd aseprite
 git pull
 git submodule update --init --recursive
 ```
+
+---
+
+## 忽略文件
+```
+$cat .gitignore
+#可以用标准的glob模式匹配
+#简化的正规表达式 * [abc] [0-9] a/**/z任意中间目录 可以匹配 a/b/z a/b/c/z
+#匹配模式可以以/开头防止递归
+#匹配模式可以以/结尾指定目录
+#!取反
+*.txt
+!Liscense.txt
+/TODO
+build/
+doc/*.txt
+doc/**/*.pdf
+```
+
+---
 
 ## 文件操作
 
@@ -127,6 +154,8 @@ git commit -v 将diff输出放入编辑器
 git commit -m 常用 一行信息提交  
 git commit -a 跳过暂存步骤，直接提交全部 不建议  
 
+git commit --amend 将落下的add后的文件提交到上次commit
+
 ### git rm
 移除文件 去掉追踪
 git rm -f  如果已经放入暂存区，可以强制删除 无法被git恢复  
@@ -139,29 +168,70 @@ mv NewFile.md NewFile
 git rm NewFild.md
 git add NewFild
 
-## 忽略文件
+### git log
 ```
-$cat .gitignore
-#可以用标准的glob模式匹配
-#简化的正规表达式 * [abc] [0-9] a/**/z任意中间目录 可以匹配 a/b/z a/b/c/z
-#匹配模式可以以/开头防止递归
-#匹配模式可以以/结尾指定目录
-#!取反
-*.txt
-!Liscense.txt
-/TODO
-build/
-doc/*.txt
-doc/**/*.pdf
+git log -p -2
+git log --stat
+git log --pretty=oneline
+
+git log --pretty=format:"%h - %an, %ar : %s"
+git log --pretty=format:"%h %s" --graph
+
+git log --author
+git log --grep
+git log --author wang --grep skill --all-match
+# --all-match 意味着&&，不然就是||
+
+git log -Sfunction_name
+# 用于查询具体操作
+
+git log --pretty="%h - %s" --author=wang --since="2020-08-03" \
+--before="2020-08-05" --no-merges -- t/
+```
+
+---
+
+## 远程仓库
+
+```
+git remote -v
+git remote show origin
+
+git remote add gitee https://github.com/aseprite/aseprite.git
+
+git fetch gitee
+
+git remote rename origin github
+git remote rm gitee
+```
+
+## 标签
+
+```
+git tag
+
+git tag -l v1.0.0
+
+#创建附注标签annotated
+git tag -a v1.2 -m "version 1.2"
+
+#创建轻量标签lightweight
+git tag v1.2-tc
+
+git show v1.2
+git show v1.2-tc
+
+#对之前的提交加标签
+git tag -a 1.2 80808abcdd
+
+#push并不会将标签发送到服务器，需要显式推送
+git push origin v1.2
+git push origin --tags #全部
 ```
 
 ## [<主页](https://www.wangdekui.com/)
 
-git log
-git log --pretty=oneline
-git log -2
-git log -p -1
-
+```
 git reset --hard HEAD
 git reset --hard HEAD^
 
@@ -174,3 +244,4 @@ git diff HEAD
 #git restore readme.txt
 
 git rm readme.txt
+```
