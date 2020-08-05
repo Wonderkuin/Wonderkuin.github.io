@@ -12,3 +12,5 @@
 ## [Apprenticeship Patterns](./notes/apprentPatterns.md)
 
 ## [Unity 2017 Game Optimizaton](./notes/unityOptimization.md)
+
+## [Pro Git](./notes/progit.md)
