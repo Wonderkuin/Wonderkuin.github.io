@@ -44,6 +44,11 @@ git config --global alias.st status
 git config --global alias.visual '!gitk'
 ```
 
+### 颜色
+```
+git config --global color.ui true
+```
+
 ---
 
 ## Help
@@ -106,6 +111,9 @@ doc/*.txt
 doc/**/*.pdf
 ```
 
+git add -f Nex.io # 强制添加忽略文件  
+git chckout-ignore -v Nex.io # 查看违反了哪条忽略规则  
+
 ---
 
 ## 文件操作
@@ -146,13 +154,16 @@ M  NewFile4
 #查看暂存的内容  
 git diff --cached  
 git diff --staged  #相同，但是好记  
+
+git diff -- notegit.txt
+git diff HEAD
 ```
 
 ### git commit
 会打开默认编辑器
 git commit -v 将diff输出放入编辑器  
 git commit -m 常用 一行信息提交  
-git commit -a 跳过暂存步骤，直接提交全部 不建议  
+git commit -a 跳过暂存步骤，直接提交全部  
 
 git commit --amend 将落下的add后的文件提交到上次commit
 
@@ -187,6 +198,9 @@ git log -Sfunction_name
 
 git log --pretty="%h - %s" --author=wang --since="2020-08-03" \
 --before="2020-08-05" --no-merges -- t/
+
+# 查看分支
+git log --oneline --decorate --graph --all
 ```
 
 ---
@@ -203,6 +217,8 @@ git fetch gitee
 
 git remote rename origin github
 git remote rm gitee
+
+git push gitee master
 ```
 
 ## 标签
@@ -229,6 +245,98 @@ git push origin v1.2
 git push origin --tags #全部
 ```
 
+---
+
+# 分支
+
+## 本地
+```
+git branch
+git branch issss
+git checkout -b hotfix
+git checkout master
+git merge hotfix
+git branch -d hotfix
+git branch -v #查看每个分支最新提交
+git branch --merged #查看已经合并到当前分支的分支
+git branch --no-merged #查看没合并到当前分支的分支
+```
+
+## 远程
+```
+# 查看远程分支信息
+git ls-remote
+
+# 不适用默认名origin初始化本地分支
+git clone -o boo
+
+# 拉取origin分支
+git fetch origin
+
+# 每次输入密码
+git config --global credential.helper cache
+```
+
+### 跟踪
+```
+git checkout --track origin/fox
+
+# 根据远程分支建立本地分支，使用不同名字
+git checkout -b foxex origin/fox
+
+# 设置已有本地分支跟踪远程分支
+git branch -u origin/fox
+
+#设置好跟踪分支后，可通过
+#@{upstream} 或 @{u} 引用被跟踪的分支
+#git merge @{u} 等价于 git merge origin/master
+
+# 查看跟踪
+git fetch --all
+git branch -vv
+
+```
+
+### 推送
+```
+# 将本地的fox分支推送到origin的fox
+git push origin fox
+git push origin fox:fox #与上面相同 别人拉取到origin/fox 不是一个新的分支，是不可修改的指针
+git merge origin/fox # 合并拉取的心分支到自己的分支
+git push origin fox:master #将本地的fox分支推送到远程的master分支
+```
+
+### 删除远程分支
+```
+git push origin --delete fox
+```
+
+## 变基 rebase
+```
+不要对在你的仓库外有副本的分支执行变基。
+如果你遵循这条金科玉律，就不会出差错。否则，人民群众会仇恨你，你的朋友和家人也会嘲笑你，唾弃你
+```
+
+```
+git checkout exper
+git rebase master
+git checkout master
+git merge exper
+git branch -d exper
+
+
+# master 分出 server ， server分出 client
+# 将client变基到master 后面
+git rebase --onto master server client
+git checkout master
+git merge client
+git rebase master server # 不必切换到server再执行rebase
+git checkout master
+git merge server
+git branch -d server
+git branch -d client
+```
+
 ## [<主页](https://www.wangdekui.com/)
 
 ```
@@ -237,11 +345,42 @@ git reset --hard HEAD^
 
 git reflog
 
-git diff HEAD -- notegit.txt
-git diff HEAD
+git switch -c dev  
+git switch master
 
-#git restore --staged readme.txt
-#git restore readme.txt
 
-git rm readme.txt
+
+git stash  
+git stash list  
+git stash apply  
+git stash drop  
+git stash pop  
+git stash apply stash@{0}  
+git cherry-pick 4c805e2  
+git checkout -b dev origin/dev  
+git switch -c dev origin/dev  
+git branch --set-upstream-to=dev origin/dev  
+```
+
+### 在缓慢的网络中
+```
+#第一种，不好
+mkdir proj_dir
+cd proj_dir
+git clone -b master https://gitee.com/lemongame/slgrpg_2d.git --depth=1
+git pull
+
+#第二种，改进
+mkdir proj_dir
+cd proj_dir
+git init
+git fetch --depth=1 https://gitee.com/lemongame/slgrpg_2d.git master:refs/remotes/origin/master
+git checkout master
+
+#再改进
+mkdir proj_dir
+cd proj_dir
+git init
+git remote add origin https://gitee.com/lemongame/slgrpg_2d.git
+git pull origin master --depth=1
 ```
