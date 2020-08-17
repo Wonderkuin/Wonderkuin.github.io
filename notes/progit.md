@@ -313,11 +313,6 @@ git push origin --delete fox
 
 ## 变基 rebase
 ```
-不要对在你的仓库外有副本的分支执行变基。
-如果你遵循这条金科玉律，就不会出差错。否则，人民群众会仇恨你，你的朋友和家人也会嘲笑你，唾弃你
-```
-
-```
 git checkout exper
 git rebase master
 git checkout master
@@ -337,8 +332,23 @@ git branch -d server
 git branch -d client
 ```
 
-## [<主页](https://www.wangdekui.com/)
+### 用变基解决变基
+```
+不要对在你的仓库外有副本的分支执行变基。
+如果你遵循这条金科玉律，就不会出差错。否则，人民群众会仇恨你，你的朋友和家人也会嘲笑你，唾弃你
 
+git pull --rebase
+
+git fetch
+git rebase some/master
+
+```
+
+## 服务器上的Git 略
+
+## 分布式Git 到这里暂停，目前已经够用了
+
+## TODO
 ```
 git reset --hard HEAD
 git reset --hard HEAD^
@@ -384,3 +394,5 @@ git init
 git remote add origin https://gitee.com/lemongame/slgrpg_2d.git
 git pull origin master --depth=1
 ```
+
+## [<主页](https://www.wangdekui.com/)

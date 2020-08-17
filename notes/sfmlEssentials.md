@@ -1292,7 +1292,7 @@ int main()
 }
 ```
 
-### Text 以下都是无环境的
+### Text 停止学习SFML
 
 ```c++
 sf::Font font;
