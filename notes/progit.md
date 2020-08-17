@@ -4,7 +4,9 @@
 
 ## SSH
 
-ssh-keygen -t rsa -C "wonderkuin@gmail.com"  
+ssh-keygen -t rsa -C "wonderkuin@gmail.com"
+
+git remote set-url origin git@github.com:Wonderkuin/Wonderkuin.github.io.git
 
 ---
 
