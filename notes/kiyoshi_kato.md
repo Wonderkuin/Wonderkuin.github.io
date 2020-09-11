@@ -239,8 +239,137 @@ void Update() {
 ## 物体随机飞溅
 ### 随机数 均匀随机数 正态分布
 
-```c
+### 均匀随机数
+```c++
+//正常
+Balls[i].vx = rand() * VEL_WIDTH / (float)RAND_MAX - VEL-WIDTH / 2.0f;
+Balls[i].vy = rand() * VEL_HEIGHT / (float)RAND_MAX - VEL_HEIGHT / 2.0f - BASE_VEL;
 
+//整数，向正上方物体，同样速度物体增多
+Balls[i].vx = ( rand() % (VEL_WIDTH + 1) ) - VEL_WIDTH / 2.0f; 
+Balls[i].vx = ( rand() % (VEL_HEIGHT + 1) ) - VEL_HEIGHT / 2.0f - BASE_VEL; 
+
+//产生从a到b的随机数
+rand() * (b = a) / (float)RAND_MAX + a;
 ```
+
+### 正态分布
+
+$$
+p(x) = \frac 1{\sqrt{2\\sigma^2}}exp\left( -\frac{ \left( x - \mu \right)^2 }{ 2 \sigma^2 } \right)
+$$
+
+Box-Muller
+
+$$
+Z_1 = \sqrt{-2ln(a)} cos(2{\pi}b)
+$$
+$$
+Z_2 = \sqrt{-2ln(a)} sin(2{\pi}b)
+$$
+
+```c++
+// √-2ln(a)
+fRand_r = sqrtf( -2.0f * logf( ( float )( rand() + 1 ) / ( RAND_MAX + 1 ) ) );
+// 2πb
+fRand_t = 2.0f * PI * ( float )rand() / RAND_MAX;
+Balls[i].vx = ( fRand_r * cosf( fRand_t )) * VEL_WIDTH;
+Balls[i].vy = ( fRand_r * sinf) fRand_t )) * VEL_HEIGHT - BASE_VEL;
+```
+
+## 圆周运动
+### 角速度 向心力
+
+
+```c++
+x = ROT_R * cosf( fAngle ) + ( VIEW_WIDTH - CHAR_WIDTH ) / 2.0f;
+y = ROT_R * sinf( fAngle ) + ( VIEW_HEIGHT - CHAR_HEIGHT ) / 2.0f;
+fAngle += 2.0f * PI / 120f; // 120帧完成一周运动
+```
+
+角速度 单位时间内角度的变化量
+$$
+\omega = \dfrac \theta t
+$$
+
+$$
+\omega = \dfrac {2\pi} T
+$$
+
+周期 经过时间T后，物体正好转一周 2$\pi$ 是周长，是T经过的角度  
+
+$$
+\theta = {2\pi} \dfrac t T
+$$
+
+#### 处理加速度
+
+当施加的加速度确定时，求速度与位置使用的公式 积分  
+
+$ x = \int vdt $
+
+$ v = \int adt $
+
+圆周运动需要根据确定的位置来算出加速度，需要使用 微分  
+
+$ v = \dfrac {dx} {dt} $
+
+$ a = \dfrac {dv} {dt} $
+
+物体正在做圆周运动
+
+$ x = r \cdot cos (\omega t) $
+
+$$
+v_x = \dfrac {dx} {dt} = \dfrac {d(r \cdot cos( \omega t ))}{dt} = - r\omega \cdot sin(\omega t)
+$$
+
+$$
+a_x = \dfrac{dv_x}{dt} = \dfrac d{dt} ( -r \omega \cdot sin(\omega t) ) = -r {\omega}^2 \cdot cos(\omega t)
+$$
+
+得到
+$ a_x = - \omega^2 x $
+
+
+同理
+
+$ y = r \cdot sin ( \omega t) $
+
+$$
+v_y = \dfrac {dy} {dt} = \dfrac {d ( r \cdot sin( \omega t))} {dt} = r \omega \cdot cos ( \omega t)
+$$
+
+$$
+a_y = \dfrac {dv_y}{dt} =  \dfrac d{dt}{r\omega \cdot cos(\omega t)} = -r{\omega^2} \cdot sin(\omega t)
+$$
+
+得到  
+$ a_y = - \omega^2 y $
+
+向心力
+$ a_x = - \omega^2 x $
+$ a_y = - \omega^2 y $
+
+```c++
+rx = ROT_R;//初始位置
+ry = 0.0f;
+vx = 0.0f;//初始速度
+vy = ROT_R * ANGLE_VEL;
+```
+
+$ x = r \cdot cos(\omega t) $
+$ y = r \cdot sin(\omega t) $
+
+$ v_x = - r \omega sin ( \omega t) $
+$ v_y = r \omega cos ( \omega t) $
+
+将时间t = 0代入，求出初始的位置和速度
+
+
+## 微分方程式 数值解法
+### 微分方程 数值解法 欧拉法
+
+
 
 ## [<主页](https://www.wangdekui.com/)
