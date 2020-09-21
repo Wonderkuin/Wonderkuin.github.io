@@ -256,14 +256,16 @@ rand() * (b = a) / (float)RAND_MAX + a;
 ### 正态分布
 
 $$
-p(x) = \frac 1{\sqrt{2\\sigma^2}}exp\left( -\frac{ \left( x - \mu \right)^2 }{ 2 \sigma^2 } \right)
+p(x) = \frac 1{\sqrt{2\sigma^2}}exp\left( -\frac{ \left( x - \mu \right)^2 }{ 2 \sigma^2 } \right)
 $$
 
-Box-Muller
+Box-Muller  
 
 $$
 Z_1 = \sqrt{-2ln(a)} cos(2{\pi}b)
-$$
+$$  
+
+
 $$
 Z_2 = \sqrt{-2ln(a)} sin(2{\pi}b)
 $$
@@ -287,7 +289,7 @@ y = ROT_R * sinf( fAngle ) + ( VIEW_HEIGHT - CHAR_HEIGHT ) / 2.0f;
 fAngle += 2.0f * PI / 120f; // 120帧完成一周运动
 ```
 
-角速度 单位时间内角度的变化量
+角速度 单位时间内角度的变化量  
 $$
 \omega = \dfrac \theta t
 $$
@@ -370,6 +372,44 @@ $ v_y = r \omega cos ( \omega t) $
 ## 微分方程式 数值解法
 ### 微分方程 数值解法 欧拉法
 
+运动方程  
+F = ma  
+加速度  
+$ a = \dfrac Fm $  
+已知位置，速度，加速度关系  
+$ v = \dfrac {dx}{dt} $  
+$ a = \dfrac {dv}{dt} $  
+得到  
+$ a = \dfrac d{dt} ( \dfrac {dx}{dt} ) = \dfrac {d^2x}{dt^2}$  
+可得  
+$ \dfrac {d^2x}{dt^2} = \dfrac Fm$  
 
+最简单的情况，重力
+
+$ \dfrac {d^2x}{dt^2} = \dfrac {mg}m = g $  
+在两边对t进行积分  
+$ \int { \dfrac {d^2x}{dt^2} dt } = \int g\ dt $
+$ \dfrac {dx}{dt} = gt + C_0 $
+再次积分
+$ \int \dfrac {dx}{dt} dt = \int \ gt + \int\ C_0 $
+$ x = \dfrac 1cgt^2 + C_0t + C_1 $
+
+弹力  
+$ F = -kx $  
+$ \dfrac {d^2x}{dt^2} = \dfrac {-kx}m $  
+无法简单的对两边进行积分求解，因为两边都有x，求解后将微分变成了积分，没有实际意义  
+使用三角函数求解
+$ x = A \cdot sin(\omega t) $
+对等式进行微分后得  
+$ \dfrac {d^2x}{dt^2} = -{\omega}^2 x $  
+发现如果  
+$ {\omega}^2 = \dfrac km $  
+方程解为  
+$ x = A \cdot sin ( \pm \sqrt{ \frac km } \cdot t ) $
+
+计算方法  最简单的欧拉法  
+
+$ \dfrac {dx} {dt} = v $
+$ \dfrac {\delta x} {\delta t} = v $
 
 ## [<主页](https://www.wangdekui.com/)
