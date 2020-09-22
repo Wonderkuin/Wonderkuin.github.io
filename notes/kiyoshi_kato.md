@@ -14,6 +14,8 @@
 
 ### [<主页](https://www.wangdekui.com/)
 
+# 物体的运动
+
 ## 让物体沿水平方向运动
 ### 匀速直线运动
 ---
@@ -409,7 +411,25 @@ $ x = A \cdot sin ( \pm \sqrt{ \frac km } \cdot t ) $
 
 计算方法  最简单的欧拉法  
 
-$ \dfrac {dx} {dt} = v $
-$ \dfrac {\delta x} {\delta t} = v $
+已知位置与速度关系  
+$ \dfrac {dx} {dt} = v $  
+将微分方程近似为差分方程  
+$ \dfrac {\Delta x} {\Delta t} = v $  
+表示为  
+$ \dfrac {x_n - x_{n-1}} {\Delta t} = v $  
+即  
+$ x_n = x_{n-1} + v \Delta t$  
+联合方程组  
+$x_n = x_{n-1} + v \Delta t$  
+$v_n = v_{n-1} + a \Delta t$  
+第一次近似时计算较为粗略，时间小精度会上升  
+比如将$\delta t$设为0.1，进行十次循环，就可以得到很高精度的单位1的结果  
+
+# 卷动
+
+## 将北京从一端卷动到另一端
+### 镜头位置 卷动幅度 比例关系
+
+
 
 ## [<主页](https://www.wangdekui.com/)
