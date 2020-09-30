@@ -427,9 +427,101 @@ $v_n = v_{n-1} + a \Delta t$
 
 # 卷动
 
-## 将北京从一端卷动到另一端
+## 将背景从一端卷动到另一端
 ### 镜头位置 卷动幅度 比例关系
 
+```c++
+void Init()
+{
+    fCamera_x = VIEW_WIDTH / 2.0f;//Camera
+    fBack_x = VIEW_WIDTH / 2.0f - fCamera_x;//Background
+}
 
+void MoveBack()
+{
+    //left
+    if (GetAsyncKeyState(VK_LEFT)) {
+        fCamera_x -= CAMERA_VEL;
+        if (fCamera_x < VIEW_WIDTH / 2.0f)
+            fCamera_x = VEIW_WIDTH / 2.0f;
+    }
+    //right
+    if (GetAsyncKeyState(VK_RIGHT)) {
+        fCamera_x += CAMERA_VEL;
+        if (fCamera_x > (float)(PICTURE_WIDTH - VIEW_WIDTH / 2.0f))
+            fCamera_x = (float)(PICTURE_WIDTH - VIEW_WIDTH / 2.0f);
+    }
+    fBack_x = VIEW_WIDTH / 2.0f - fCamera_x;
+}
+```
+
+#### 三重卷动
+
+```c++
+fBack_x1 = VIEW_WIDTH / 2.0f - fCamera_x;
+fBack_x2 = (float)(PICTURE_WIDTH2 - VIEW_WIDTH) / (PICTURE_WIDTH1 - VIEW_WIDTH) * fBack_x1;
+fBack_x3 = (float)(PICTURE_WIDTH3 - VIEW_WIDTH) / (PICTURE_WIDTH1 - VIEW_WIDTH) * fBack_x1;
+```
+
+## 让背景卷动与角色的运动产生联动
+### 区域坐标 画面坐标
+
+```c++
+// fCamera_x 区域中镜头
+// fChara_sx 区域中角色
+// fChara_x 画面上角色
+// fBack_x 画面上背景
+fCamera_x = fChara_sx; //镜头暂时回到角色的位置，画面中央
+if (fCamera_x < VIEW_WIDTH / 2.0f) //检查左移边界，如果出了，限制回来
+    fCamera_x = VIEW_WIDTH / 2.0f;
+if (fCamera_x > PICTURE_WIDTH - VIEW_WIDTH / 2.0f) //检查右移边界
+    fCamera_x = PICTURE_WIDTH - VIEW_width / 2.0f;
+fChara_x = fChara_sx - fCamera_x + VIEW_WIDTH / 2.0f - CHARA_WIDTH / 2.0f; //利用相对位置，角色可以移动到屏幕两侧
+fBack_x = VIEW_WIDTH / 2.0f - fCamera_x;
+```
+
+```c++
+// 角色在画面中央附近时背景不动，角色靠近画面边缘时背景开始卷动
+if (fCamera_x < fChara_sx - SCROLL_DIF) //检查镜头是否靠近了左侧
+    fCamera_x = fChara_sx - SCROLL_DIF;
+if (fCamera_x > fChara_sx + SCROLL_DIF) //检查镜头是否靠近了右侧
+    fCamera_x = fChara_sx + SCROLL_DIF;
+```
+
+## 卷动由地图块组合的地图
+### 地图 地图块 整数的减法 移位运算 逻辑运算
+
+```c++
+fMap_x = VIEW_WIDTH / 2.0f - fCamera_x; // 地图的显示坐标，左上角，相机在画面中心
+fMap_y = VIEW_HEIGHT / 2.0f - fCamera_y;
+nBaseChip_x = (int) - fMap_x / CHIPSIZE; // 需要绘制的第一个地图块编号
+nBaseChip_y = (int) - fMap_y / CHIPSIZE;
+fBasePos_x = fMap_x + nBaseChip_x * CHIPSIZE; // 需要绘制的第一个地图块坐标
+fBasePos_y = fMap_y + nBaseCHip_y * CHIPSIZE;
+nChipNum_x = VIEW_WIDTH / CHIPSIZE + 1 + 1; // 需要绘制的横向地图块数量
+nChipNum_y = VIEW_HEIGHT / CHIPSIZE + 1 + 1; // 需要绘制的纵向地图块数量
+fChipPos_y = fBasePos_y;
+for (i = 0; i < nChipNum_y; i++) {
+    fChipPos_x = fBasePos_x;
+    for ( j = 0; j < nChipNum_x; j++) {
+        DrawMapChip( fChipPos_x, fChipPos_y, nMapData[nBaseChip_y + i][nBaseChip_x + j]);
+        fChipPos_x += CHIPSIZE;
+    }
+    fChipPos_y += CHIPSIZE;
+}
+
+//-200 = 200 / 2 - 300
+//-100 = 100 / 2 - 150
+//2 = - -200 / 100
+//1 = - -100 / 100
+//fBasepos_x = fMap_x + (int)(-fMap_x)
+//fBasepos_y = fMap_y + (int)(-fMap_y)
+// 看来只是向上取整数地图块
+4 = 200 / 100 + 1 + 1
+3 = 100 / 100 + 1 + 1
+
+// 从左上角开始绘制到屏幕外一格地图，浪费了一部分
+// 代码根据相机位置，计算绘制多少格子，保证相机显示的区域是有地图的
+```
 
 ## [<主页](https://www.wangdekui.com/)
