@@ -522,6 +522,292 @@ for (i = 0; i < nChipNum_y; i++) {
 
 // 从左上角开始绘制到屏幕外一格地图，浪费了一部分
 // 代码根据相机位置，计算绘制多少格子，保证相机显示的区域是有地图的
+
+// 如果CHIPSIZE 为64
+nbaseChip_x = (int) - fMap_x / CHIPSIZE;
+nbaseChip_y = (int) - fMap_y / CHIPSIZE;
+// 可以用移位运算，提速
+nbaseChip_x = (int) - fMap_x >> 6;
+nbaseChip_y = (int) - fMap_y >> 6;
+
+// 如果CHIPSIZE 为64
+fBasePos_x = fMap_x + nBaseChip_x * CHIPSIZE;
+fBasePos_y = fMap_y + nBaseCHip_y * CHIPSIZE;
+// 可以用位运算，提速，乘法运算和逻辑运算在不同cpu单元中，可以并行
+fBasePos_x = -( (int) -fMap_x & 0x3f); // 64求余数 <=> -fMap_x % 64
+fBasePos_y = -( (int) -fMap_y & 0x3f);
 ```
+
+## 波纹式的摇摆卷动
+### 波纹扭曲 正弦波 波长 振幅 周期
+
+```c++
+// 光栅扫描法
+DRAWPOINT v2Points[VIEW_HEIGHT]; // 图形线的位置
+
+for (int i = 0; i < VIEW_HEIGHT; i++) {
+    v2Points[i].y = (float)i;
+    //v2Points[i].x = //(float)i; // 0.0f // (float)i * 0.5f; // 线性
+    //v2Points[i].x = 30.0f * sinf( 2.0f * PI * v2Points[i].y / 200.0f); // 正弦
+    v2Points[i].x = 30.0f * sinf( 2.0f * PI * ( fTime / 60.0f - v2Points[i].y / 200.0f)); // 时间
+}
+
+```
+
+$$
+y = A \cdot sin ( \dfrac {2\pi}\lambda  x)
+$$
+
+$$
+y = A \cdot sin ( 2 \pi ( \dfrac tT - \dfrac x\lambda ) )
+$$
+
+A 振幅 30.0f
+$ \lambda $ 波长  200.0f
+T 周期 60.0f
+
+## 制作有纵深感的卷动
+### 透视 比例计算 梯形
+
+```c++
+fLineWidth = PIC_WIDTH_UP;
+fLineBase = ( PIC_WIDTH_DOWN - PIC_WIDTH_UP ) / 2.0f;
+for (int i = 0; i < VIEW_HEIGHT; i++) {
+    v2Points[i].y = (float)i;
+    v2Points[i].x = fBase_x * ( fLineWidth - VIEW_WIDTH ) / ( PIC_WIDTH_DOWN - VIEW_WIDTH ) - fLineBase;
+    fLineWidth += (float) ( PIC_WIDTH_DOWN - PIC_WIDTH_UP ) / VIEW_HEIGHT;
+    fLineBase -= (float) ( PIC_WIDTH_DOWN - PIC_WIDTH_UP ) / VIEW_HEIGHT / 2.0f;
+}
+
+    // x_B fBack_x 卷动的基准位置，最下端的图形线 卷动速度最快的位置
+    // x_L fLineBase 梯形图片中需要被绘制的部分 开始的x坐标的变量
+    // w_L fLineWidth 梯形图片中需要被绘制的部分 梯形宽度
+    // w_V VIEW_WIDTH 画面宽度
+    // w_D PIC_WIDTH_DOWN 图形下端宽度
+    // w_U PIC_WIDTH_UP 图形上端宽度
+
+    //       w_L - w_V
+    //  x = ————————————  x_B - x_L
+    //       w_D - w_V
+
+    // 镜头在最左边时 x_B == 0
+```
+
+## 长方形物体间的碰撞检测
+### 矩形 德摩根定律
+
+```c++
+bool CheckHit( F_RECT *prcRect1, F_RECT *prcRect2 )
+{
+    bool nResult = false;
+    if ( ( prcRect1->fRight > prcRect2->fLeft ) &&
+         ( prcRect1->fLeft  < prcRect2->fRight ) )
+    {
+        if ( ( prcRect1->fBottom > prcRect2->fTop ) &&
+             ( prcRect1->fTop    < prcRect2->fBOttom ) )
+        {
+            nResult = true;
+        }
+    }
+    return nResult;
+}
+```
+
+## 圆形与圆形 圆形与长方形物体间的碰撞检测
+### 距离 勾股定理 平方比较
+
+```c++
+bool CheckHit( F_CIRCLE *pcrCircle1, F_CIRCLE *pcrCircle2 )
+{
+    bool nResult = false;
+    float dx, dy; // 位置坐标之差
+    float ar; // 两圆半径之和
+    float fDistSqr;
+
+    dx = pcrCircle1->x - pcrCircle2->x; // delta x
+    dy = pcrCircle1->y - pcrCircle2->y; // delta y
+    fDistSqr = dx * dx + dy * dy;
+    ar = pcrCircle1->r + pcrCircle2->r;
+
+    if ( fDistSqr < ar * ar)
+        nResult = true;
+
+    return nResult;
+}
+
+struct F_CIRCLE {
+    float x,y; // 圆心
+    float r; // 半径
+}
+```
+
+```c++
+// 1，将需要检测的长方形，在上下左右4个方向均向外扩张，扩张的长度为圆半径r，如果扩张后得到新的长方形内包含了圆心坐标，
+// 则认为两物体具备碰撞的可能，反之则无碰撞的可能。
+// 2，在满足 1 的情况下，如果圆心坐标在长方形以外、扩张后的长方形的左上，左下，右上，右下四个角处，且园内没有包含长方
+// 形最近的顶点，则认为两物体没有碰撞。
+
+int CheckHit( F_RECT *prcRect1, F_CIRCLE *pcrCircle2 )		// 碰撞检测
+{
+	int				nResult = false;
+	float			ar;								// 圆的半径
+
+	// 对长方形进行粗略检测
+	if ( ( pcrCircle2->x > prcRect1->fLeft   - pcrCircle2->r ) &&
+		 ( pcrCircle2->x < prcRect1->fRight  + pcrCircle2->r ) &&
+		 ( pcrCircle2->y > prcRect1->fTop    - pcrCircle2->r ) &&
+		 ( pcrCircle2->y < prcRect1->fBottom + pcrCircle2->r ) )
+	{
+		nResult = true;
+		ar = pcrCircle2->r;
+		// 物体碰到左端检测
+		if ( pcrCircle2->x < prcRect1->fLeft ) {
+			// 左上角检测
+			if ( ( pcrCircle2->y < prcRect1->fTop ) )
+			{
+				if ( ( DistanceSqr( prcRect1->fLeft,  prcRect1->fTop,
+									pcrCircle2->x, pcrCircle2->y ) >= ar * ar ) ) {
+					nResult = false;
+				}
+			}
+			else {
+				// 左下角检测
+				if ( ( pcrCircle2->y > prcRect1->fBottom ) )
+				{
+					if ( ( DistanceSqr( prcRect1->fLeft,  prcRect1->fBottom,
+										pcrCircle2->x, pcrCircle2->y ) >= ar * ar ) ) {
+						nResult = false;
+					}
+				}
+			}
+		}
+		else {
+			// 物体碰到右端检测
+			if ( pcrCircle2->x > prcRect1->fRight ) {
+				// 右上角检测
+				if ( ( pcrCircle2->y < prcRect1->fTop ) )
+				{
+					if ( ( DistanceSqr( prcRect1->fRight,  prcRect1->fTop,
+										pcrCircle2->x, pcrCircle2->y ) >= ar * ar ) ) {
+						nResult = false;
+					}
+				}
+				else {
+					// 右下角检测
+					if ( ( pcrCircle2->y > prcRect1->fBottom ) )
+					{
+						if ( ( DistanceSqr( prcRect1->fRight,  prcRect1->fBottom,
+											pcrCircle2->x, pcrCircle2->y ) >= ar * ar ) ) {
+							nResult = false;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return nResult;
+}
+```
+
+## 细长形物体与圆形物体间的碰撞检测
+### 点与线段的距离 内积 微分
+
+```c++
+bool CheckHit( F_CIRCLE 8pcrCircle, F_RECT_CIRCLE *prcRectCircle )
+{
+    bool nResult = false;
+    float dx, dy; // 位置坐标之差
+    float t;
+    float mx, my; // 对应最短距离的坐标
+    float ar;     // 两物体的半径之和
+
+    float fDistSqr;
+
+    dx = pcrCircle->x - prcRectCircle->x;       // delta x
+    dy = pcrCircle->y - prcRectCircle->y;       // delta y
+    t = ( prcRectCircle->vx * dx + prcRectCircle->vy * dy ) / 
+        ( prcRectCircle->vx * prcRectCircle->vx + prcRectCircle->vy * prcRectCircle->vy );
+    if ( t < 0.0f ) t = 0.0f; // t的下限
+    if ( t > 1.0f ) t = 1.0f; // t的上限
+
+    mx = prcRectCircle->vx * t + prcRectCircle->x; // 有最短距离的线段上的坐标
+    my = prcRectCircle->vy * t + prcRectCircle->y;
+    fDistSqr = ( mx - pcrCircle->x ) * ( mx - pcrCircle->x ) + 
+               ( my - pcrCircle->y ) * ( my - pcrCircle->y ); // 距离的平方
+    ar = pcrCircle->r + prcRectCircle->r;
+    if ( fDistSqr < ar * ar ) {
+        nResult = true;
+    }
+
+    return nResult;
+}
+// F_RECT_CIRCLE 一个长方形 两端两个半圆
+// 首先需要计算 F_CIRCLE 的圆心坐标到 F_RECT_CIRCLE 中的线段的最短距离
+// 然后再计算 F_CIRCLE 的圆半径 + 到 F_RECT_CIRCLE 中的线段的有效距离
+// 如果最短距离小于有效距离 则认为两者碰撞
+
+// prcRectCircle
+//        x,y = 0,0
+//        vx,vy = 2.5,0
+// pcrCircle
+//        x,y = 1,2
+// dx, dy = 1,2  实际上是向量
+// t = ( 2.5 * 1 + 0 ) / (2.5 * 2.5 + 0) = 1.0 / 2.5 = 0.4
+// 1 将线段上的点 p=at+b (0<=t<=1) 与点(x0, y0)的距离表示为t的函数，然后对t进行微分，求得距离最小时的t
+// 2 过点(x0, y0)向包含线段的直线p=at+b做一条垂线，使用向量的内积求得距离的最小值t
+// 经过直线公式代入，再微分，极限，求导得到了t，这个t是可以令线段与点有最短距离的t
+// mx = 2.5 * 0.4 + 0 = 1
+// my = 0 + 0 = 0
+// fDistSqr = ( 1 - 1 )^2 + ( 0 - 2 )^2 = 4
+// 到这里获得了最短距离的平方
+// ar = 0.5 + 0.5 = 1
+// sqrt(fDistSqr) == 2 大于 ar == 1 不相交
+// 在这里进行比较，应该用平方比较，判断距离
+```
+
+#### 解释t  
+
+p 令线段距离最短的点 px py  
+a 向量 ax ay  
+b 向量 bx by  
+
+根据 p = at + b ( 0 <= t <= 1)  
+
+px = ax t + bx  
+py = ay t + by  
+0 <= t <= 1  
+
+根据勾股定理  
+l^2 = ( px - x0 )^2 + ( py - y0 )^2  
+    = ( ax t + bx - x0 )^2 + (ay t + by - y0)^2  
+    = ax^2 t^2 + 2ax( bx - x0 )t + x0^2 + ay^2 t^2 + 2ay( by - y0 )t + y0^2  
+    = ( ax^2 + ay^2 )t^2 + 2{ ax ( bx - x0 ) + ay ( by - y0 )}t + x0^2 + y0^2  
+
+已知 l1 >= 0 且 l2 >= 0 时，如果 l1^2 >= l2^2 则 l1 >= l2  
+因此，令l^2 最小的t，就是点到线段的最短距离所对应的t，为了求极限，将等式微分  
+d(l^2) / dt = 2 ( ax^2 + ay^2 ) t + 2( ax(bx - x0) + ax(by - y0) )  
+
+要求使极限为0的t的值，需要使l^2取极值，在上式中应该为极小值,进行二阶微分  
+d^2(l^2) / dt^2 = 2( ax^2 + ay^2 ) > 0  
+等式必然为正，因此函数的2阶微分为正时所取的极值为极小值  
+综上，通过 d^2(l^2) / dt 为0的t的值，可以计算出线段与点的最短距离  
+
+d(l^2) / dt = 2 ( ax^2 + ay^2 ) t + 2( ax(bx - x0) + ax(by - y0) ) = 0  
+2 ( ax^2 + ay^2 ) t = -2( ax( bx - x0 ) + ay( by - y0 ) )  
+所以   ax ( x0 - bx ) + ay ( y0 - by )  
+t =  ————————————————————————————————————  
+            ( ax^2 + ay^2 )  
+
+程序中  
+ax = prcRectCircle->vx
+ay = prcRectCircle->vy
+dx = pcrCircle->x - prcRectCircle->x;  
+dy = pcrCircle->y - prcRectCircle->y;  
+
+## 扇形物体的碰撞检测
+### 条件划分 向量的运算 向量的内分点 圆的方程式
+
+
 
 ## [<主页](https://www.wangdekui.com/)
