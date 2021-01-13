@@ -812,6 +812,26 @@ dy = pcrCircle->y - prcRectCircle->y;
 
 ## 物体的运动
 
+### 直接改变位置
+
+匀速直线运动 
+x = vt
+
+键盘控制物体移动 
+x += delta
+
+同时输入多个方向
+Vector2 xy;
+CirclePoint(xy);
+x += xy;
+
+### 让物体沿任意方向运动
+
+三角函数 
+Vx = V cos(angle)
+Vy = V sin(angle)
+
+
 
 
 ## [<主页](https://www.wangdekui.com/)

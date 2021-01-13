@@ -3,11 +3,14 @@
 文章遵从 “署名-非商业性使用-禁止演绎” 协议
 [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.zh)
 
+
 ## [3D数学基础 图形和游戏开发 reading](./notes/mathPrimer.md)
 
 ## [Unity 2017 游戏优化 reading](./notes/unityOptimization.md)
 
 ## [游戏开发的数学和物理 reading](./notes/kiyoshi_kato.md)
+
+## [学习vi和vim](./notes/vim.md)
 
 ## [Clean C++](./notes/cleancpp.md)
 

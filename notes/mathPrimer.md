@@ -3,4 +3,8 @@
 
 ### [<主页](https://www.wangdekui.com/)
 
+你一直在关注的：人物，职场，科学，趣闻轶事。你应该在学校学到的东西。 
+
 # TODO
+
+## [<主页](https://www.wangdekui.com/)
