@@ -31,7 +31,7 @@ git config --global user.email "wonderkuin@all.com"
 ### 可以针对特定项目使用不同的信息
 ```
 git config user.name "wonderkuin"  
-git config user.email "wonderkuin@all.com"  
+git config user.email "wonderkuin@gmail.com"  
 ```
 
 ### 文本编辑器
