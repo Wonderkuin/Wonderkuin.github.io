@@ -808,6 +808,10 @@ dy = pcrCircle->y - prcRectCircle->y;
 ## 扇形物体的碰撞检测
 ### 条件划分 向量的运算 向量的内分点 圆的方程式
 
+# 以上过于冗长 中断阅读后 重新开始
+
+## 物体的运动
+
 
 
 ## [<主页](https://www.wangdekui.com/)
