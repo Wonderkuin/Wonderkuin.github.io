@@ -569,7 +569,12 @@ T 周期 60.0f
 ## 制作有纵深感的卷动
 ### 透视 比例计算 梯形
 
+图片是一个梯形，长边卷动快，短边卷动慢 
+
 ```c++
+// fBase_x 卷送的基准位置，图形最下端的图形线 卷动速度最快的部分
+// 其他图形线的x坐标，都是以fBase_x为基准位置，通过一定的比例关系计算得到的
+
 fLineWidth = PIC_WIDTH_UP;
 fLineBase = ( PIC_WIDTH_DOWN - PIC_WIDTH_UP ) / 2.0f;
 for (int i = 0; i < VIEW_HEIGHT; i++) {
@@ -579,6 +584,7 @@ for (int i = 0; i < VIEW_HEIGHT; i++) {
     fLineBase -= (float) ( PIC_WIDTH_DOWN - PIC_WIDTH_UP ) / VIEW_HEIGHT / 2.0f;
 }
 
+    // 比例计算
     // x_B fBack_x 卷动的基准位置，最下端的图形线 卷动速度最快的位置
     // x_L fLineBase 梯形图片中需要被绘制的部分 开始的x坐标的变量
     // w_L fLineWidth 梯形图片中需要被绘制的部分 梯形宽度
@@ -592,6 +598,25 @@ for (int i = 0; i < VIEW_HEIGHT; i++) {
 
     // 镜头在最左边时 x_B == 0
 ```
+
+## 透视理论
+### 视景体 view frustum 、 近似
+
+显示屏与视点距离为h 
+视点原点为[0 0 0] 
+将空间中的点[x y z], 显示屏，视点 构造一个三角形 
+设显示屏上x坐标为xd 
+则 xd / h = x / z 
+得 xd = h x / z 
+同理 yd = h y / z 
+
+此时x坐标与y坐标，在显示屏上变为了原来的 h/z 倍 
+z坐标越大，距离视点的深度越大，倍率越小，显示的物体越小 
+z == h 时， 倍率正好为1倍，不会有放大或缩小 
+
+视景体的断面是一个梯形，梯形图片卷动会让人产生纵深感 
+
+# 碰撞检测
 
 ## 长方形物体间的碰撞检测
 ### 矩形 德摩根定律
@@ -616,6 +641,7 @@ bool CheckHit( F_RECT *prcRect1, F_RECT *prcRect2 )
 ## 圆形与圆形 圆形与长方形物体间的碰撞检测
 ### 距离 勾股定理 平方比较
 
+#### 圆形与圆形
 ```c++
 bool CheckHit( F_CIRCLE *pcrCircle1, F_CIRCLE *pcrCircle2 )
 {
@@ -641,10 +667,16 @@ struct F_CIRCLE {
 }
 ```
 
+#### 圆形与长方形
+
+考虑长方形各边与圆形相交 
+圆形完全包含长方形 
+长方形完全包含圆形 
+
 ```c++
 // 1，将需要检测的长方形，在上下左右4个方向均向外扩张，扩张的长度为圆半径r，如果扩张后得到新的长方形内包含了圆心坐标，
 // 则认为两物体具备碰撞的可能，反之则无碰撞的可能。
-// 2，在满足 1 的情况下，如果圆心坐标在长方形以外、扩张后的长方形的左上，左下，右上，右下四个角处，且园内没有包含长方
+// 2，在满足 1 的情况下，如果圆心坐标在长方形以外、扩张后的长方形的左上，左下，右上，右下四个角处，且圆内没有包含长方
 // 形最近的顶点，则认为两物体没有碰撞。
 
 int CheckHit( F_RECT *prcRect1, F_CIRCLE *pcrCircle2 )		// 碰撞检测
@@ -713,6 +745,22 @@ int CheckHit( F_RECT *prcRect1, F_CIRCLE *pcrCircle2 )		// 碰撞检测
 ## 细长形物体与圆形物体间的碰撞检测
 ### 点与线段的距离 内积 微分
 
+难度在于求最短距离，原理很简单 
+
+首先需要计算圆心到线段的最短距离 
+再比较 圆半径+棍半径 和 最短距离，如果最短距离小，则碰撞 
+
+关于F_RECT_CIRCLE的表示，是 
+x y 是经过的点
+vx vy 是向量带长度
+
+px = ax t + bx 
+py = ay t + by 
+0 <= t <= 1 
+表示的一条线段 
+最短时的t 
+t = [ ax ( x0 - bx ) + ay ( y0 - by ) ] / ( ax^2 + ay^2 )
+
 ```c++
 bool CheckHit( F_CIRCLE 8pcrCircle, F_RECT_CIRCLE *prcRectCircle )
 {
@@ -742,31 +790,9 @@ bool CheckHit( F_CIRCLE 8pcrCircle, F_RECT_CIRCLE *prcRectCircle )
 
     return nResult;
 }
-// F_RECT_CIRCLE 一个长方形 两端两个半圆
-// 首先需要计算 F_CIRCLE 的圆心坐标到 F_RECT_CIRCLE 中的线段的最短距离
-// 然后再计算 F_CIRCLE 的圆半径 + 到 F_RECT_CIRCLE 中的线段的有效距离
-// 如果最短距离小于有效距离 则认为两者碰撞
-
-// prcRectCircle
-//        x,y = 0,0
-//        vx,vy = 2.5,0
-// pcrCircle
-//        x,y = 1,2
-// dx, dy = 1,2  实际上是向量
-// t = ( 2.5 * 1 + 0 ) / (2.5 * 2.5 + 0) = 1.0 / 2.5 = 0.4
-// 1 将线段上的点 p=at+b (0<=t<=1) 与点(x0, y0)的距离表示为t的函数，然后对t进行微分，求得距离最小时的t
-// 2 过点(x0, y0)向包含线段的直线p=at+b做一条垂线，使用向量的内积求得距离的最小值t
-// 经过直线公式代入，再微分，极限，求导得到了t，这个t是可以令线段与点有最短距离的t
-// mx = 2.5 * 0.4 + 0 = 1
-// my = 0 + 0 = 0
-// fDistSqr = ( 1 - 1 )^2 + ( 0 - 2 )^2 = 4
-// 到这里获得了最短距离的平方
-// ar = 0.5 + 0.5 = 1
-// sqrt(fDistSqr) == 2 大于 ar == 1 不相交
-// 在这里进行比较，应该用平方比较，判断距离
 ```
 
-#### 解释t  
+#### 如何求出t?
 
 p 令线段距离最短的点 px py  
 a 向量 ax ay  
@@ -795,9 +821,7 @@ d^2(l^2) / dt^2 = 2( ax^2 + ay^2 ) > 0
 
 d(l^2) / dt = 2 ( ax^2 + ay^2 ) t + 2( ax(bx - x0) + ax(by - y0) ) = 0  
 2 ( ax^2 + ay^2 ) t = -2( ax( bx - x0 ) + ay( by - y0 ) )  
-所以   ax ( x0 - bx ) + ay ( y0 - by )  
-t =  ————————————————————————————————————  
-            ( ax^2 + ay^2 )  
+所以  t = [ ax ( x0 - bx ) + ay ( y0 - by ) ] / ( ax^2 + ay^2 ) 
 
 程序中  
 ax = prcRectCircle->vx
@@ -807,204 +831,6 @@ dy = pcrCircle->y - prcRectCircle->y;
 
 ## 扇形物体的碰撞检测
 ### 条件划分 向量的运算 向量的内分点 圆的方程式
-
-# 以上过于冗长 中断阅读后 重新开始
-
-# 物体的运动
-
-## 直接改变位置
-
-匀速直线运动 
-x = vt
-
-键盘控制物体移动 
-x += delta
-
-同时输入多个方向
-Vector2 xy;
-CirclePoint(xy);
-x += xy;
-
-## 让物体沿任意方向运动
-
-三角函数 
-Vx = V cos(angle) 
-Vy = V sin(angle) 
-
-抛物运动 
-y += vy;//对位置加入速度 
-vy += GR;//为速度加上加速度 
-
-y = 1/2 G t^2 - 1/2 G t  少了 1/2 Gt 
-
-积分 
-y = 1/2 G t^2 + C1 t + C2 
-
-使用积分制作的抛物运动程序 
-
-x = vx * t;//决定x方向的位置 
-y = 0.5f * GR * t * t + vy * t + 200.0f;//决定y方向的位置 
-
-即 
-
-x = vx t
-y = 1/2 G t^2 + vy t + 200
-
-只需要知道物体运动过程中的具体时刻，就可以直接算出物体的位置，误差不会随着时间增加而增大 
-
-## 物体随机飞溅运动
-
-均匀随机数 
-
-vx = rand() * VEL_WIDTH / RAND_MAX - VEL_WIDTH / 2.0f;//随机设置vx的初始值 
-vy = rand() * VEL_HEIGH / RAND_MAX - VEL_HEIGH / 2.0f - BASE_VEL;//随机设置vy初始值 
-
-获得随机数 0-n 
-rand() * n / RAND_MAX    rand() / RAND_MAX 为0-1的随机数 
-
-为什么不使用求余 因为求余获得的整数，会使随机变得不自然 
-为什么除以 2.0f，使正负数对称 
-为什么减去 BASE_VEL，因为要有基础速度 
-
-获得随机数 a-b 
-rand() * (b - a) / RAND_MAX + a 
-
-
-正态分布 
-
-Box-Muller算法 
-假设a b是两个服从均匀分布并且取值范围为从0到1的随机数，可以通过下面的公式获得两个满足正态分布（均数为0，标准差为1）的随机数Z1 和 Z2 
-
-Z1 = sqrt( -2 ln (a) ) cos( 2 pi b ) 
-Z2 = sqrt( -2 ln (a) ) sin9 2 pi b ) 
-
-## 圆周运动
-
-围绕中心旋转 直接改变位置 
-x = R * cos( angle ) + ( VIEW_WIDTH - CHAR_WIDTH ) / 2.0f; 
-y = R * sin( angle ) + ( VIEW_HEIGH - CHAR_HEIGH ) / 2.0f; 
-fAngle += 2.0f * PI / 120.0f;//增大角度
-
-公式 
-x = r cos(angle) + x0 
-y = r sin(angle) + y0 
-
-微分 根据位置计算速度，根据速度计算加速度 
-x = r cos(w t) 
-vx = -rw sin(w t) 
-ax = -r w^2 cos(w t) 
-
-ax = -w^2 x
-得到加速度关于位置的公式 
-
-w为角速度 
-同理， 
-ay = -w^2 y 
-
-c++
-```
-#define PI					3.14159265f				// 圆周率
-#define VIEW_WIDTH			640						// 画面宽度
-#define VIEW_HEIGHT			480						// 画面高度
-#define CHAR_WIDTH			64						// 物体宽度
-#define CHAR_HEIGHT			64						// 物体高度
-#define ROT_R				180.0f					// 旋转半径
-#define ANGLE_VEL			( 2.0f * PI / 120.0f )	// 角速度
-
-float				x, y;							// 显示位置
-float				rx, ry;							// 距离旋转中心的相对位置
-float				vx, vy;							// 速度
-
-int InitCharacter( void )							// 只在程序开始时调用一次
-{
-	rx = ROT_R;										// 初期位置
-	ry = 0.0f;
-	vx = 0.0f;										// 初速
-	vy = ROT_R * ANGLE_VEL;
-	x = rx + ( VIEW_WIDTH  - CHAR_WIDTH  ) / 2.0f;	// 显示位置
-	y = ry + ( VIEW_HEIGHT - CHAR_HEIGHT ) / 2.0f;
-
-	return 0;
-}
-
-int MoveCharacter( void )							// 每帧调用
-{
-	rx += vx;										// 对位置加入速度
-	ry += vy;
-	vx += -ANGLE_VEL * ANGLE_VEL * rx;				// 为速度加上加速度
-	vy += -ANGLE_VEL * ANGLE_VEL * ry;
-	x = rx + ( VIEW_WIDTH  - CHAR_WIDTH  ) / 2.0f;	// 显示位置
-	y = ry + ( VIEW_HEIGHT - CHAR_HEIGHT ) / 2.0f;
-
-	return 0;
-}
-
-```
-
-## 微分方程及其数值解法
-
-F = ma 
-a = F / m 
-v = dx / dt 
-a = dv / dt 
-a = d( dx / dt ) / dt = d^2 x / d t^2 
-这种等式中含有微分的方程称为微分方程
-
-### 直接积分
-这里用S表示积分
-Sdt( d^2 x / d t^2 ) = Sdt( g ) 
-dx / dt = gt + C0 
-Sdt( dx / dt ) = Sdt( g ) + S( C0 ) 
-x = 0.5 g t^2 + C0 t + C1 
-
-### 三角函数代换
-根据胡克定律 k为劲度系数 x为位移 
-F = -kx 无法直接两边积分求解，需要使用 三角函数 代换消元 
-
-假设 
-x = A sin(w t) 
-dx / dt = A w cos(w t) 
-d^2 x / d t^2 = - A w^2 sin(w t) = - w^2 x 
-
-则 -kx / m = - w^2 x 
-k / m = w^2 
-x = A sin ( +- sqrt( k / m ) t ) 
-
-### 数值解法 近似解 欧拉法 龙格-库塔法 线性多步法
-dx / dt = v 
-如果需要通过速度计算位置，要进行积分 
-delta(x) / delta(t) = v 
-用现在位移减去前一次位移 
-xn - xn-1 / delta(t) = v 
-即 
-xn = xn-1 + v delta(t) 
-同理，速度与加速度关系 
-vn = vn-1 + a delta(t) 
-连合为方程组 第一个等式中的v使用第二个等式中的任何一个v 
-
-在游戏中，将delta(t) 设置为1 是 1帧
-xn = xn-1 + v 
-vn = vn-1 + a 
-
-# 卷动
-
-### 背景卷动
-移动相机和背景 
-向左 
-Camera_x -= CAMERA_VEL 
-if (Camera_x < VIEW_WIDTH / 2.0f>) 
-    Camera_x = VIEW_WIDTH / 2.0f 
-向右 
-Camera_x += CAMERA_VEL 
-if (Camera_x > PICTURE_WIDTH - VIEW_WIDTH / 2.0f) 
-    Camera_x = PICTURE_WIDTH - VIEW_WIDTH / 2.0f 
-
-多重卷动 
-back_1 = VIEW_WIDTH / 2.0f - Camera_x //外侧图片 最大 
-back_2 = (PICTURE_WIDTH2 - VIEW_WIDTH) / (PICTURE_WIDTH1 - VIEW_WIDTH) * back_1
-back_3 = (PICTURE_WIDTH3 - VIEW_WIDTH) / (PICTURE_WIDTH1 - VIEW_WIDTH) * back_1
-
-### 背景卷动与角色运动产生联动
 
 
 
