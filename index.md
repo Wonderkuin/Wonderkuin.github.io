@@ -24,4 +24,4 @@
 
 ## [SFML Essentials](./notes/sfmlEssentials.md)
 
-## [健身笔记](./notes/bodyBuilding.md)
+## [笔记](./notes/note.md)

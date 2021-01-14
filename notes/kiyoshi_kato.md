@@ -828,9 +828,86 @@ x += xy;
 ### 让物体沿任意方向运动
 
 三角函数 
-Vx = V cos(angle)
-Vy = V sin(angle)
+Vx = V cos(angle) 
+Vy = V sin(angle) 
 
+抛物运动 
+y += vy;//对位置加入速度 
+vy += GR;//为速度加上加速度 
+
+y = 1/2 G t^2 - 1/2 G t  少了 1/2 Gt 
+
+积分 
+y = 1/2 G t^2 + C1 t + C2 
+
+使用积分制作的抛物运动程序 
+
+x = vx * t;//决定x方向的位置 
+y = 0.5f * GR * t * t + vy * t + 200.0f;//决定y方向的位置 
+
+即 
+
+x = vx t
+y = 1/2 G t^2 + vy t + 200
+
+只需要知道物体运动过程中的具体时刻，就可以直接算出物体的位置，误差不会随着时间增加而增大 
+
+### 物体随机飞溅运动
+
+均匀随机数 
+
+vx = rand() * VEL_WIDTH / RAND_MAX - VEL_WIDTH / 2.0f;//随机设置vx的初始值 
+vy = rand() * VEL_HEIGH / RAND_MAX - VEL_HEIGH / 2.0f - BASE_VEL;//随机设置vy初始值 
+
+获得随机数 0-n 
+rand() * n / RAND_MAX    rand() / RAND_MAX 为0-1的随机数 
+
+为什么不使用求余 因为求余获得的整数，会使随机变得不自然 
+为什么除以 2.0f，使正负数对称 
+为什么减去 BASE_VEL，因为要有基础速度 
+
+获得随机数 a-b 
+rand() * (b - a) / RAND_MAX + a 
+
+
+正态分布 
+
+Box-Muller算法 
+假设a b是两个服从均匀分布并且取值范围为从0到1的随机数，可以通过下面的公式获得两个满足正态分布（均数为0，标准差为1）的随机数Z1 和 Z2 
+
+Z1 = sqrt( -2 ln (a) ) cos( 2 pi b ) 
+Z2 = sqrt( -2 ln (a) ) sin9 2 pi b ) 
+
+## 圆周运动
+
+围绕中心旋转 直接改变位置 
+x = R * cos( angle ) + ( VIEW_WIDTH - CHAR_WIDTH ) / 2.0f; 
+y = R * sin( angle ) + ( VIEW_HEIGH - CHAR_HEIGH ) / 2.0f; 
+fAngle += 2.0f * PI / 120.0f;//增大角度
+
+公式 
+x = r cos(angle) + x0 
+y = r sin(angle) + y0 
+
+微分 根据位置计算速度，根据速度计算加速度 
+x = r cos(w t) 
+vx = -rw sin(w t) 
+ax = -r w^2 cos(w t) 
+
+ax = -w^2 x
+得到加速度关于位置的公式 
+
+w为角速度 
+同理， 
+ay = -w^2 y 
+
+程序： 
+rx = ROT_R;  //初始位置 
+ry = 0.0f; 
+vx = 0.0f; //初始速度 
+vy = ROT_R * ANGLE_VEL; 
+
+## 微分方程及其数值解法
 
 
 
