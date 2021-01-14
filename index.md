@@ -10,8 +10,6 @@
 
 ## [游戏开发的数学和物理 reading](./notes/kiyoshi_kato.md)
 
-## [学习vi和vim](./notes/vim.md)
-
 ## [Clean C++](./notes/cleancpp.md)
 
 ## [软件开发者路线图 从学徒到高手](./notes/apprentPatterns.md)
