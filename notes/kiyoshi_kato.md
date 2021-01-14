@@ -810,9 +810,9 @@ dy = pcrCircle->y - prcRectCircle->y;
 
 # 以上过于冗长 中断阅读后 重新开始
 
-## 物体的运动
+# 物体的运动
 
-### 直接改变位置
+## 直接改变位置
 
 匀速直线运动 
 x = vt
@@ -825,7 +825,7 @@ Vector2 xy;
 CirclePoint(xy);
 x += xy;
 
-### 让物体沿任意方向运动
+## 让物体沿任意方向运动
 
 三角函数 
 Vx = V cos(angle) 
@@ -852,7 +852,7 @@ y = 1/2 G t^2 + vy t + 200
 
 只需要知道物体运动过程中的具体时刻，就可以直接算出物体的位置，误差不会随着时间增加而增大 
 
-### 物体随机飞溅运动
+## 物体随机飞溅运动
 
 均匀随机数 
 
@@ -942,6 +942,69 @@ int MoveCharacter( void )							// 每帧调用
 ```
 
 ## 微分方程及其数值解法
+
+F = ma 
+a = F / m 
+v = dx / dt 
+a = dv / dt 
+a = d( dx / dt ) / dt = d^2 x / d t^2 
+这种等式中含有微分的方程称为微分方程
+
+### 直接积分
+这里用S表示积分
+Sdt( d^2 x / d t^2 ) = Sdt( g ) 
+dx / dt = gt + C0 
+Sdt( dx / dt ) = Sdt( g ) + S( C0 ) 
+x = 0.5 g t^2 + C0 t + C1 
+
+### 三角函数代换
+根据胡克定律 k为劲度系数 x为位移 
+F = -kx 无法直接两边积分求解，需要使用 三角函数 代换消元 
+
+假设 
+x = A sin(w t) 
+dx / dt = A w cos(w t) 
+d^2 x / d t^2 = - A w^2 sin(w t) = - w^2 x 
+
+则 -kx / m = - w^2 x 
+k / m = w^2 
+x = A sin ( +- sqrt( k / m ) t ) 
+
+### 数值解法 近似解 欧拉法 龙格-库塔法 线性多步法
+dx / dt = v 
+如果需要通过速度计算位置，要进行积分 
+delta(x) / delta(t) = v 
+用现在位移减去前一次位移 
+xn - xn-1 / delta(t) = v 
+即 
+xn = xn-1 + v delta(t) 
+同理，速度与加速度关系 
+vn = vn-1 + a delta(t) 
+连合为方程组 第一个等式中的v使用第二个等式中的任何一个v 
+
+在游戏中，将delta(t) 设置为1 是 1帧
+xn = xn-1 + v 
+vn = vn-1 + a 
+
+# 卷动
+
+### 背景卷动
+移动相机和背景 
+向左 
+Camera_x -= CAMERA_VEL 
+if (Camera_x < VIEW_WIDTH / 2.0f>) 
+    Camera_x = VIEW_WIDTH / 2.0f 
+向右 
+Camera_x += CAMERA_VEL 
+if (Camera_x > PICTURE_WIDTH - VIEW_WIDTH / 2.0f) 
+    Camera_x = PICTURE_WIDTH - VIEW_WIDTH / 2.0f 
+
+多重卷动 
+back_1 = VIEW_WIDTH / 2.0f - Camera_x //外侧图片 最大 
+back_2 = (PICTURE_WIDTH2 - VIEW_WIDTH) / (PICTURE_WIDTH1 - VIEW_WIDTH) * back_1
+back_3 = (PICTURE_WIDTH3 - VIEW_WIDTH) / (PICTURE_WIDTH1 - VIEW_WIDTH) * back_1
+
+### 背景卷动与角色运动产生联动
 
 
 
