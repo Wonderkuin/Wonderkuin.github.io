@@ -832,6 +832,48 @@ dy = pcrCircle->y - prcRectCircle->y;
 ## 扇形物体的碰撞检测
 ### 条件划分 向量的运算 向量的内分点 圆的方程式
 
+挥舞细长物体时，造成了扇形，扇形经常用到 
 
+```c++
+int CheckHit( F_CIRCLE *pcrCircle, F_FAN *pfaFan ) // 碰撞检测
+{
+    int nResult = false;
+
+    float dx, dy; // 位置差分
+    float fAlpha, fBeta;
+    float fDelta;
+    float ar;   // 两半径之和
+    float fDistSqr;
+    float a, b, c;
+    float d;
+    float t;
+
+    dx = pcrCircle->x - pfaFan->x;
+    dy = pcrcircle->y - pfaFan->y;
+    fDistSqr = dx * dx + dy * dy;
+
+    if (fDistSqr < pcrCircle->r * pcrCircle->r)
+    {
+        nResult = true;
+    }
+    else
+    {
+        fDelta = pfaFan->vx1 * pfaFan->vy2 - pfaFan->vx2 * pfaFan->vy1;
+        fAlpha = (dx * pfaFan->vy2 - dy * pfaFan->vx2) / fDelta;
+        fBeta = (-dx * pfaFan->vy1 + dy * pfaFan->vx1) / fDelta;
+
+        if ( (fAlpha >= 0f) && (fBeta >= 0f))
+        {
+            ar = pfaFan->r + pcrCircle->r;
+            if (fDistSqr < ar * ar)
+                nResult = true;
+        }
+        else
+        {
+            
+        }
+    }
+}
+```
 
 ## [<主页](https://www.wangdekui.com/)
