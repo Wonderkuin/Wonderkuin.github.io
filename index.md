@@ -20,6 +20,10 @@
 
 ## [DoTween文档摘抄](./notes/dotween.md)
 
+## [ECS DOTS](./notes/ecsDots.md)
+
+## [Android](./notes/android.md)
+
 ## [SFML Essentials](./notes/sfmlEssentials.md)
 
 ## [笔记](./notes/note.md)
