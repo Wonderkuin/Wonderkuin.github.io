@@ -908,4 +908,166 @@ matrix 使用提供的矩阵缩放图片 setImageMatrix 可以进行旋转等变
 />
 ```
 
+```java
+Bitmap bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+ImageView iv = (ImageView)findViewById(R.id.image);
+iv.setImageBitmap(bitmap);
+```
+
+#### Dragable抽象接口
+
+StateListDrawable选择第一个符合当前状态标准的项  
+
+```xml
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true"
+        android:drawable="@drawable/button_pressed" />
+    <item android:state_focused="true"
+        android:drawable="@drawable/button_focused" />
+    <item android:state_hovered="true"
+        android:drawable="@drawable/button_hovered" />
+    <item android:drawable="@drawable/button_normal>
+</selector>
+```
+
+其他：Canvas SurfaceView TextureView  
+
+#### WebView
+基于Webkit的HTML渲染引擎，支持V8 Javascript解释器  
+需要INTERNET权限  
+```xml
+<WebView
+    android:id="@+id/webview"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+/>
+```
+
+```Java
+WebView webView = (WebView)findViewById(R.id.webView);
+webView.loadUrl("http://www.baidu.com");
+
+// JavaScript Flash支持
+WebSettings webSettings = webView.getSettings();
+webSettings.setjavaScriptEnabled(true);
+webSettings.setPluginState(WebSettings.PluginState.ON);
+
+//缩放控制 拿捏缩放
+webSettings.setSupportZoom(true);
+webSettings.setBuildInZoomControls(true);
+
+//重写URL加载
+webView.setWebViewClient(new WebViewClient() {
+    @Override
+    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        view.loadUrl(url);
+        return true;//停止事件，阻止浏览器打开
+    }
+});
+```
+
+### 复用UI
+
+<include>标签，包含另一个布局  
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+    <include layout="@layout/sub_layout">    
+</LinearLayout>
+```
+
+局部搜索  
+View.findViewById  
+整个View搜索  
+Activity.findViewById  
+
+<merge>标签 子布局  
+merge标签会被去掉  
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <ImageView />
+    <TextView />
+</merge>
+```
+
+ViewStub  
+像<include>一样，但是不会扩张的，直到发送指定的请求才会扩张  
+能加速UI的绘制速度  
+
+```xml
+<ViewStub
+    android:id="@+id/view_stub"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:inflatedId="@+id/sub"
+    android:layout="@layout/sub"
+/>
+```
+
+```java
+ViewStub vs = (ViewStub) findViewById(R.id.view_stub);
+vs.setVisibility(View.VISIBLE);
+View v = vs.inflate();
+```
+
+#### 样式
+
+```xml
+<!--不好的写法-->
+<TextView
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:textColor="#FF0000"
+/>
+```
+
+```xml
+<!--制作一个样式-->
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="RedText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#FF0000</item>
+    </style>
+</resources>
+```
+
+使用样式  
+```xml
+<TextViwe
+    style="@style/RedText"
+    android:text="@string/hello"
+/>
+```
+
+样式继承  
+```xml
+<stype name="GreenText" parent="@android:style/TextAppearance">
+    <item name="android:textColor">#FF0000</item>
+</style>
+```
+
+继承自己的样式，简便写法  
+```xml
+<style name="RedText.Small">
+    <item name="android:textSize">8dip</item>
+</style>
+```
+
+#### 主题
+
+样式只会应用到一个视图上，不应用到子视图上  
+主题可以在activity或者application上应用  
+```xml
+<activity
+    android:name=".ExampleActivity"
+    android:theme="@android:style/Theme.Holo"
+/>
+```
+
 ## [<主页](https://www.wangdekui.com/)
