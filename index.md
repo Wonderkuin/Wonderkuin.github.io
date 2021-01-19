@@ -4,26 +4,28 @@
 [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.zh)
 
 
-## [3D数学基础 图形和游戏开发 reading](./notes/mathPrimer.md)
+## [3D数学基础](./notes/mathPrimer.md)
 
-## [Unity 2017 游戏优化 reading](./notes/unityOptimization.md)
+## [游戏开发的数学和物理](./notes/kiyoshi_kato.md)
 
-## [游戏开发的数学和物理 reading](./notes/kiyoshi_kato.md)
+## [Unity DOTS](./notes/ecsDots.md)
+
+## [Unity游戏优化](./notes/unityOptimization.md)
 
 ## [Clean C++](./notes/cleancpp.md)
 
-## [软件开发者路线图 从学徒到高手](./notes/apprentPatterns.md)
+## [Vim](./notes/learnVim.md)
 
 ## [Pro Git](./notes/progit.md)
 
-## [Markdown语法](./notes/markdown.md)
+## [Android UI](./notes/android.md)
+
+## [SFML Essentials](./notes/sfmlEssentials.md)
 
 ## [DoTween文档摘抄](./notes/dotween.md)
 
-## [ECS DOTS](./notes/ecsDots.md)
+## [软件开发者路线图](./notes/apprentPatterns.md)
 
-## [Android](./notes/android.md)
-
-## [SFML Essentials](./notes/sfmlEssentials.md)
+## [Markdown语法](./notes/markdown.md)
 
 ## [笔记](./notes/note.md)

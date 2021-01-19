@@ -1,5 +1,7 @@
 ### [<主页](https://www.wangdekui.com/)
 
+[精通安卓UI](#pro)
+
 # Android
 
 ## 简介
@@ -1069,5 +1071,578 @@ View v = vs.inflate();
     android:theme="@android:style/Theme.Holo"
 />
 ```
+
+#### Fragment
+class是一个Java类，也可以不写，在运行时添加fragment  
+
+```xml
+<FrameLayout xmlns:android="http:schemas.android.com/apk.res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <fragment class="com.example.ExampleFragment"
+        android:id="@+id/example"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+</FrameLayout>
+```
+
+一个Fragment的生命周期与Activity类似，重写onCreateView  
+```java
+public class SimpleTextFragment extends Fragment {
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        TextView tv = new TextView(getActivity());
+        tv.setText("Hello");
+        return tv;
+    }
+}
+```
+
+类比onCreate  
+onAttach第一次与活动联系时调用  
+onCreate初始化，此时host活动可能还没完成onCreate  
+onCreateView创建视图，fragment不一定需要UI组件  
+onActivityCreated当host活动完成了onCreate调用后调用的  
+类比onDestroy  
+onDestroyView视图与fragment分离  
+onDestroy不再调用  
+onDetach从host活动卸下  
+
+```java
+public class SimpleTextFragment extends Fragment {
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.task_list, null);
+    }
+}
+```
+
+#### fragment 事务
+
+更改UI中现有的fragment，需要使用事务，通过FragmentManager执行  
+```java
+FragmentManager fm = getFragmentManager();
+FragmentTransaction ft = fm.beginTransaction();
+ExampleFragment fragment = new ExampleFragment();
+ft.add(R.id.fragment_container, fragment);
+ft.commit();
+
+// 查找
+//fm.findFragmentById(R.id.frag);
+//fm.findFragmentByTag("tag");
+
+//fragment 回退栈
+ft.addToBackStack(null);//tasks a string name argument, not used here
+ft.commit();
+
+// 弹出最近的事务
+//ft.popBackStackI();
+```
+
+### 导航和数据
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/search"
+        android:title="Search"
+        android:icon="@android:drawable/ic_menu_search"
+        android:showAsAction="ifRoom|withText"
+    />
+    <!--可以给标题栏加组件，比如搜索，在menu的三个点的左边-->
+    <item
+        android:id="@+id/search"
+        android:title="Search"
+        android:icon="@android:drawable/ic_menu_search"
+        android:showAsAction="ifRoom|collapseActionView"
+        android:actionViewClass="android.widget.SearchView"
+    />
+    <!--Action Provider 实现微信右上角功能，自定义menu布局-->
+    <item
+        android:id="@+id/share"
+        android:title="@string/share"
+        android:showAsAction="ifRoom"
+        android:actionProviderClass="android.widget.ShareActionProvider"
+    />
+</menu>
+```
+
+#### 标签导航
+
+```java
+public void onCreate(Bundle bundle) {
+    super.onCreate(bundle);
+    final ActionBar bar = getActionBar();
+    bar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
+
+    Tab t = bar.newtab();
+    t.setText("Tab Text");
+    t.setTableListener(this);
+    bar.addTab(bar.newTab());
+}
+
+public void onTabSelected(ActionBar.Tab tab, FragmentTransaction ft) {
+    ft.replace(R.id.content, fragment, null);
+}
+
+public void onTabUnselected(ActionBar.Tab tab, FragmentTransaction ft) {
+    ft.remove(fragment);
+}
+
+public void onTabReselected(ActionBar.Tab tab, FragmentTransaction ft) {
+}
+```
+
+#### TabWidget ？ 略
+#### Adapter ViewHolder
+
+```java
+public class TimeListAdapter extends CursorAdapter {
+    private static class ViewHolder {
+        int nameIndex;
+        int timeIndex;
+        TextViwe name;
+        TextViwe time;
+    }
+
+    public TimeListAdapter(Context context, Cursor c, int flags) {
+        super(context, c, flags);
+    }
+
+    @Override
+    public void bindView(View view, Context context, Cursor cursor) {
+        ViweHolder holder = (ViewHolder)view.getTag();
+        holder.name.setText(cursor.getString(holder.nameIndex));
+        holder.time.setText(cursor.getString(holder.timeIndex));
+    }
+    @Override
+    public View newView(Context context, Cursor cursor, ViewGroup parent) {
+        View view = LayoutInflater.from(context).inflate(R.layout.time_row, null);
+        ViewHolder holder = new ViewHolder();
+        holder.name = (TextView) view.findViewById(R.id.task_name);
+        holder.time = (TextView) view.findViweById(R.id.task_time);
+        holder.nameIndex = cursor.getColumnIndexThrow(TaskProvider.Task.NAME);
+        holder.timeIndex = cursor.getColumnIndexThrow(TaskProvider.Task.DATE);
+        view.setTag(holder);
+        return view;
+    }
+}
+```
+
+#### loader 略
+
+## 处理手势操作
+
+单个手指操作  
+hello文本跟随手指在屏幕上移动  
+
+```java
+public class TouchExample extends View {
+    private Paint mPaint;
+    private float mFontSize;
+    private float dx;
+    private float dy;
+    public TouchExample(Context context) {
+        super(context);
+        mFontSize = 16 * getResources().getDisplayMetrics().density;
+        mPaint = new Paint();
+        mPaint.setColor(Color.WHITE);
+        mPaint.setTextSize(mFontSize);
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        String text = "Hello";
+        canvas.drawText(text, dx, dy, mParint);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        dx = event.getX();
+        dy = event.getY();
+        invalidate();
+        //应当返回true占用事件，防止基类处理，否则，只能收到ACTION_DOWN
+        return true;
+    }
+}
+
+public calss GestureActivity extends Activity {
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        TouchExample view = new TouchExample(this);
+        setContextView(view);
+    }
+}
+```
+
+#### MotionEvent
+
+Action列表  
+ACTION_DOWN  
+ACTION_POINTER_DOWN  
+ACTION_POINTER_UP  
+ACTION_MOVE  
+ACTION_UP  
+ACTION_CANCEL  
+
+需要增加新的类放置触摸点  
+
+```java
+final static int MAX_POINTERS = 5;
+private Pointer[] mPointers = new Pointer[MAX_POINTERS];
+class Pointer {
+    float x = 0;
+    float y = 0;
+    int index = -1;
+    int id = -1;
+}
+
+public TouchExample(Context context) {
+    for (int i = 0; i < MAX_POINTERS; i++) {
+        mPointers[i] = new Pointer();
+    }
+}
+
+// 记录手指
+@Override
+public boolean onTouchEvent(MotionEvent event) {
+    int pointerCount = Math.min(event.getPointerCount(), MAX_POINTERS);
+    switch (event.getAction() & MotionEvent.ACTION_MASK) {
+        case MotionEvent.ACTION_DOWN:
+        case MotionEvent.ACTION_POINTER_DOWN:
+        case MotionEvent.ACTION_MOVE:
+            // Clear previous pointers
+            for (int id = 0; id < MAX_POINTERS; id++)
+                mPointers[id].index = -1;
+            // Now fill in the current pointers
+            for (int i = 0; i < pointerCount; i++ ) {
+                int id = event.getPointerId(i);
+                Pointer pointer = mPointers[id];
+                pointer.index = i;
+                pointer.id = id;
+                pointer.x = event.getX(i);
+                pointer.y = event.getY(i);
+            }
+            invalidate();
+            break;
+        case MotionEvent.ACTION_CANCEL:
+            for (int i = 0; i < pointCount; i++) {
+                int id = event.getPointerId(i);
+                mPointers[id].index = -1;
+            }
+            invalidate();
+            break;
+    }
+    return true;
+}
+
+// 展示每个触摸点的索引值和id
+@Override
+protected void onDraw(Canvas canvas) {
+    super.onDraw(canvas);
+    for (Pointer p : mPointers) {
+        if (p.index != -1) {
+            String text = "Index: " + p.index + " ID: " + p.id;
+            canvas.drawText(text, p.x, p.y, mPaint);
+        }
+    }
+}
+```
+
+#### GestureDetector 方便的类 响应手势操作
+点击 双击 滑动 速动fling  
+拿捏缩放 ScaleGestureDetector  
+```java
+// 双击屏幕缩放文本，再次双击恢复大小
+public class TouchExample extends View {
+    private float mSacle = 1.0f;
+    private GestureDetector mGestureDetector;
+    private ScaleGestureDetector mScaleGestureDetector;
+    public TouchExample(Context context) {
+        super(context);
+        mGestureDetector = new GestureDetector(context, new ZoomGesture());
+        mScaleGestureDetector = new GestureDetector(context, new ScaleGesture());
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        mGestureDetector.onTouchEvent(event);
+        mScaleGestureDetector.onTouchEvent(event);
+    }
+}
+
+public class ZoomGesture extends GestureDetector.SompleOnGestureListener {
+    private boolean normal = true;
+    @Override
+    public boolean onDoubleTap(MotionEvent e) {
+        mScale = normal ? 3f : 1f;
+        mPaint.setTextSize(mScale * mFontSize);
+        normal = !normal;
+        invalidate();
+        return true;
+    }
+}
+
+public class ScaleGesture extends ScaleGestureDetector.SimpleOnScaleGestureListener {
+    @Override
+    public boolean onScale(ScaleGestureDetector detector) {
+        mScale *= detector.getScaleFactor();
+        mPaint.setTextSize(mScale * mFontSize);
+        invalidate();
+        return true;
+    }
+}
+```
+
+### 动画
+
+#### Drawable动画
+
+动画球例子  
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:andoird="http://schemas.android.com/apk/res/android"
+    android:shape="oval" >
+    <solid android:color="FFFFFF"/>
+    <size android:height="100dp" android:width="100dp" />
+</shape>
+```
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:visible="true"
+    android:oneshot="true">
+    <item android:drawable="@drawable/white_circle"
+        android:duration="250"/>
+    <item android:drawable="@drawable/gray_circle"
+        android:duration="250"/>
+    <item android:drawable="@drawable/black_circle"
+        android:duration="250"/>
+</animation-list>
+```
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/image_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:scaleType="center"
+    android:src="@drawable/animation"
+/>
+```
+
+```java
+public class AnimationExampleActivity extends Activity {
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(saveInstanceState);
+        setContentView(R.layout.main);
+        ImageView iv = (ImageView) findViewById(R.id.image_view);
+        iv.setOnTouchListener(new OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                ImageView iv = (ImageView) v;
+                AnimationDrawable ad = (AnimationDrawable) iv.getDrawable();
+                ad.stop();
+                ad.start();
+                return true;
+            }
+        });
+    }
+}
+```
+
+#### 视图动画框架
+
+/res/anim/文件夹下放置  
+Translate 移动视图  
+Scale 改变视图的尺寸  
+Rotate 翻转视图  
+Alpha  改变视图的透明度  
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<translate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:duration="500"
+    android:toYDelta="25%"
+    android:toXDelta="25%"
+/>
+```
+
+```java
+TranslateAnimation anim = 
+    new TranslateAnimation(
+        TranslateAnimation.RELATIVE_TO_SELF, 0.0f,
+        TranslateAnimation.RELATIVE_TO_SELF, 0.25f,
+        TranslateAnimation.RELATIVE_TO_SELF, 0.0f,
+        TranslateAnimation.RELATIVE_TO_SELF, 0.25f);
+anim.setDuration(500);
+```
+
+组合  
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android">
+    <translate
+        android:duration="500"
+        android:toYDelta="25%"
+        android:toXDelta="25%"
+        />
+    <alpha
+        android:dutation="500"
+        android:startOffset="500"
+        android:fromAlpha="1.0"
+        android:toAlpha="0.0"
+    />
+</set>
+```
+设置Ease  
+accelerator  
+decelerate  
+overshoot  
+bounce  
+
+```xml
+android:interpolator="@android:anim/accelerate_interpolator"
+```
+
+使用  
+
+```java
+TextViwe tv = (TextView)findViewById(R.id.text);
+Animation animation = Animationutils.loadAnimation(this, R.anim.slide);
+animation.setAnimationListener(new AnimationListener(){
+    @Override
+    public void onAnimationStart(Animation animation) {}
+    @Override
+    public void onAnimationRepeat(Animation animation) {}
+    @Overrid
+    public void onAnimationEnd(Animation animation) {
+        tv.setVisibility(View.INVISIBLE);
+    }
+});
+tv.startAnimation(animation);
+```
+
+#### 属性动画 略
+
+### 自定义视图
+
+调用invalidate()强制绘制  
+
+```java
+public class CrossView extends View {
+    public CrossView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+    }
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        setMeasuredDimension(calculateMeasure(widthMeasureSpec), calculateMeasure(heightMeasureSpec));
+    }
+
+    private static final int DEFAULT_SIZE = 100;
+    private int calculateMeasure(int meausreSpec) {
+        int result = (int) (DEFAULT_SIZE * getResources().getDisplayMetrics().density);
+        int specMode = MeasureSpec.getMode(measureSpec);
+        int specSize = MeasureSPec.getSize(measureSpec);
+        if (specMode == MeasureSpec.EXACTLY) {
+            result = specSize;
+        } else if (specMode == MeasureSpec.AT_MOST) {
+            result = Math.min(result, specSize);
+        }
+        return result;
+    }
+
+    private Paint mPaint;
+    public CrossView(Context context, AttributeSet attrs) {
+        super(context);
+        mPaint = new Paint();
+        mPaint.setAntiAlias(true);
+        mPaint.setColor(0xFFFFFFFF);
+    }
+
+    float[] mPoints = {
+        0.5f, 0f, 0.5f, 1f,
+        0f, 0.5f, 1f, 0.5f
+    };
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        canvas.save();
+        int scale = getWidth();
+        canvas.scale(scale, scale);
+        canvas.drawLines(mPoints, mPaint);
+        canvas.restore();
+    }
+}
+```
+
+```xml
+<com.example.CrossView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+/>
+```
+
+如果是内部类  
+com.example.CustomViewActivity$CrossView
+
+#### 自定义属性
+
+res/values/目录  
+attr 必须包括name和format  
+已经定义过format不需要再定义  
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="test" format="string" />
+    <declare-styleable name="cross">
+        <attr name="android:color" />
+        <attr name="rotation" format="string" />
+        <attr name="test" />
+    </declare-styleable>
+
+    <attr name="enum_attr">
+        <enum name="value1" value="1" />
+        <enum name="value2" value="2" />
+    </attr>
+    <!--可以进行拼接-->
+    <com.example.Foo example:flag_attr="flag1|flag2" />
+    <attr name="flag_attr">
+        <flag name="flag1" value="0x01" />
+        <flag name="flag2" value="0x02" />
+    </attr>
+</resources>
+```
+
+使用  
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:example="http://schemas.android.com/apk/res/com.example">
+    <com.example.CrossView
+        example:rotation="30"
+    />
+</LinearLayout>
+```
+
+#### 创建复合组件 略
+#### OpenGL 略
+#### 本地化和辅助功能 略
+
+<div id="pro"></div>
+
+# Pro Android UI
+
+# TODO
+
 
 ## [<主页](https://www.wangdekui.com/)
