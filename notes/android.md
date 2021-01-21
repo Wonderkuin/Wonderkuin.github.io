@@ -970,7 +970,10 @@ webView.setWebViewClient(new WebViewClient() {
 
 ### 复用UI
 
-<include>标签，包含另一个布局  
+```
+<include>标签，包含另一个布局
+```
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -981,13 +984,15 @@ webView.setWebViewClient(new WebViewClient() {
 </LinearLayout>
 ```
 
+```
 局部搜索  
 View.findViewById  
 整个View搜索  
 Activity.findViewById  
 
-<merge>标签 子布局  
+<merge>标签 子布局
 merge标签会被去掉  
+```
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <merge xmlns:android="http://schemas.android.com/apk/res/android">
@@ -996,9 +1001,11 @@ merge标签会被去掉
 </merge>
 ```
 
+```
 ViewStub  
 像<include>一样，但是不会扩张的，直到发送指定的请求才会扩张  
 能加速UI的绘制速度  
+```
 
 ```xml
 <ViewStub

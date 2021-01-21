@@ -2,7 +2,7 @@
 
 ### [<主页](https://www.wangdekui.com/)
 
-## [Talk is cheap, Show me the code]().
+## "Talk is cheap, Show me the code."
 
 ## Chapter 1
 
