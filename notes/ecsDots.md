@@ -9,6 +9,8 @@ Mathematics
 Hybrid Renderer  
 Jobs  
 Burst  
+Unity Physics  
+Havok PHysics for Unity  
 
 #### Entity Debugger
 场景不显示  
@@ -223,7 +225,8 @@ private void Start() {
 ```c#
 [BurstCompile(CompileSynchronously = true)]
 [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast)]
-[BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.High)]
+[BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, 
+    FloatPrecision = FloatPrecision.High)]
 ```
 
 应用程序在手机安装时才进行AOT编译  
@@ -390,11 +393,12 @@ public class MySystem : JobComponentSystem {
     }
     protected override JobHandle OnUpdate(JobHandle inputDeps) {
         var ecb = m_EndSimulationEcbSystem.CreateCommandBuffer().ToConcurrent();
-        var jobHandle = Entities.ForEach((Entity entity, int entityInQueryIndex, ref PositionAndRotation posAndRot) => {
-            if (!posAndRot.delete) {
-                posAndRot.delete = true;
-                ecb.DestroyEntity(entityInQueryIndex, entity);
-            }
+        var jobHandle = Entities.ForEach((Entity entity, int entityInQueryIndex, 
+            ref PositionAndRotation posAndRot) => {
+                if (!posAndRot.delete) {
+                    posAndRot.delete = true;
+                    ecb.DestroyEntity(entityInQueryIndex, entity);
+                }
         }).Schedule(inputDeps);
         // 添加到队列中，等待统一删除
         m_EndSimulationEcbSystem.AddJobHandleForProducer(jobHandle);
@@ -672,10 +676,11 @@ public struct TestEntity : IComponentData {
 }
 public class Test : MonoBehaviour, IConvertGameObjectToEntity {
     public int value;
-    public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem) {
-        dstManager.AddComponent(entity, typeof(TestEntity));
-        TestEntity testEntity = new TestEntity { value = value };
-        dstManager.AddComponentData(entity, testEntity);
+    public void Convert(Entity entity, EntityManager dstManager, 
+        GameObjectConversionSystem conversionSystem) {
+            dstManager.AddComponent(entity, typeof(TestEntity));
+            TestEntity testEntity = new TestEntity { value = value };
+            dstManager.AddComponentData(entity, testEntity);
     }
 }
 
@@ -885,7 +890,8 @@ public static quaternion EulerZXY(float3 xyz) {
         // s.y * c.x * c.z - s.x * s.z * c.y,
         // s.z * c.x * c.y - s.x * s.y * c.z,
         // c.x * c.y * c.z + s.y * s.z * s.x
-        float4(s.xyz, c.x) * c.yxxy * c.zzyz + s.yxxy * s.zzyz * float4(c.xyz, s.x) * float4(1f, -1f, -1f, 1f);
+        float4(s.xyz, c.x) * c.yxxy * c.zzyz + 
+            s.yxxy * s.zzyz * float4(c.xyz, s.x) * float4(1f, -1f, -1f, 1f);
     );
 }
 ```
@@ -944,11 +950,12 @@ public struct TestEntity : IComponentData {
 public class Test : MonoBehaviour, IConvertGameObjectToEntity {
     public int value;
 
-    public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem) {
-        //将数据添加给TestEntity
-        dstManager.AddComponent(entity, typeof(TestEntity));
-        TestEntity testEntity = new TestEntity { value = value };
-        dstManager.AddComponentData(entity, testEntity);
+    public void Convert(Entity entity, EntityManager dstManager, 
+        GameObjectConversionSystem conversionSystem) {
+            //将数据添加给TestEntity
+            dstManager.AddComponent(entity, typeof(TestEntity));
+            TestEntity testEntity = new TestEntity { value = value };
+            dstManager.AddComponentData(entity, testEntity);
     }
 }
 ```
@@ -1060,7 +1067,8 @@ public class Main :MonoBehaviour {
     }
     void Update() {
         //开始渲染
-        Graphics.DrawMesh(m_MeshFilter.mesh, meshRenderer.transform.localToWorldMatrix, m_Material, 0);
+        Graphics.DrawMesh(m_MeshFilter.mesh, 
+            meshRenderer.transform.localToWorldMatrix, m_Material, 0);
     }
 }
 ```
@@ -1292,9 +1300,10 @@ BatchRendererGroup m_BatchRendererGroup;
 void Start() {
     m_BatchRendererGroup = new BatchRendererGroup(this.OnPerformCulling);
 }
-public JobHandle OnPerformCulling(BatchRendererGroup rendererGroup, BatchCullingContext cullingContext) {
-    //在这里可以开启一个Job进行裁切
-    return default;
+public JobHandle OnPerformCulling(BatchRendererGroup rendererGroup, 
+    BatchCullingContext cullingContext) {
+        //在这里可以开启一个Job进行裁切
+        return default;
 }
 ```
 
@@ -1321,29 +1330,737 @@ void Start() {
 
 ```c#
 // 裁切掉第三个元素，不让它渲染
-public JobHandle OnPerformCulling(BatchRendererGroup rendererGroup, BatchCullingContext cullingContext) {
-    //遍历Batch 因为前面只加了一个Batch，i只有1一个值
-    for (var i = 0; i < cullingContext.batchVisibility.Length; i++) {
-        //只有一个Batch对象，但是它绘制了10个元素
-        var batchVisibility = cullingContext.batchVisibility[i];
-        var visibleInstancesIndex = 0;
-        for (var j = 0; j < batchVisibility.instancesCount; ++j) {
-            //当绘制2号元素的时候跳过
-            //batchVisibility.offset表示索引的开始
-            if (j == 2) continue;
-            cullingContext.visibleIndices[visibleInstancesIndex] = batchVisibility.offset + j;
-            visibleInstancesIndex++;
+public JobHandle OnPerformCulling(BatchRendererGroup rendererGroup, 
+    BatchCullingContext cullingContext) {
+        //遍历Batch 因为前面只加了一个Batch，i只有1一个值
+        for (var i = 0; i < cullingContext.batchVisibility.Length; i++) {
+            //只有一个Batch对象，但是它绘制了10个元素
+            var batchVisibility = cullingContext.batchVisibility[i];
+            var visibleInstancesIndex = 0;
+            for (var j = 0; j < batchVisibility.instancesCount; ++j) {
+                //当绘制2号元素的时候跳过
+                //batchVisibility.offset表示索引的开始
+                if (j == 2) continue;
+                cullingContext.visibleIndices[visibleInstancesIndex] = batchVisibility.offset + j;
+                visibleInstancesIndex++;
+            }
+            //这样参数显示的数量就变成9
+            batchVisibility.visibleCount = visibleInstancesIndex;
+            //重新赋值batchVisibility对象
+            cullingContext.batchVisibility[i] = batchVisibility;
         }
-        //这样参数显示的数量就变成9
-        batchVisibility.visibleCount = visibleInstancesIndex;
-        //重新赋值batchVisibility对象
-        cullingContext.batchVisibility[i] = batchVisibility;
-    }
-    return default;
+        return default;
 }
 ```
 
 目的是将超过摄像机显示的区域的物体剔除，有了Bounds组件其实还不够  
 还要根据摄像机方向，远近裁面，每个物体Bounds才能求得是否在镜头中  
+
+```c#
+BatchRendererGRoup m_BatchRendererGroup;
+void Start() {
+    m_BatchRendererGroup = new BatchRendererGroup(this.OnPerformCulling);
+    //绘制十个元素
+    int batchIndex = m_BatchRendererGroup.AddBatch(mesh, 0, material, 0, ShodowCastingMode.On, true, false,
+        //因为每个立方体长度是1，所以乘以10
+        new Bounds(Vector3.zero, Vector3.one * 10f), 10, null, null);
+    //获取指定Batch的索引
+    var matrixes = m_BatchRendererGroup.GetBatchMatrices(batchIndex);
+    //在多线程中添加数据
+    AddJob add = new AddJob() {
+        matrixes = matrixes
+    };
+    //等待多线程结束
+    add.Run(matrixes.Length);
+}
+
+//负责添加，不需要考虑顺序，可以使用并行任务
+[BurstCompile]
+public struct AddJob : IJobParallelFor {
+    public NativeArray<Matrix4x4> matrixes;
+    public void Execute(int index) {
+        Matrix4x4 offset = Matrix4x4.identity;
+        //标准矩阵的坐标在原点，这里修改每个元素的x轴+1
+        offset.m03 = index;
+        matrixes[index] = offset;
+    }
+}
+
+//裁切处理
+JobHandle m_Handle;
+public JobHandle OnPerformCulling(BatchRendererGroup rendererGroup, 
+    BatchCullingContext cullingContext) {
+        CullingJob culling = new CullingJob() {
+            //因为只有一个批次，id是0，多次需要修改
+            matrixes = m_BatchRendererGroup.GetBatchMatrices(0);
+            planes = Unity.Rendering.FrustumPlanes.BuildSOAPlanePackets(
+                    cullingContext.cullingPlanes, Allocator.TempJob),
+            batchVisibility = cullingContext.batchVisibility,
+            visibleIndices = cullingContext.visibleIndices,
+        };
+        var handle = culling.Schedule(m_Handle);
+        m_Handle = JobHandle.CombineDependencies(handle, m_Handle);
+        m_Handle.Complete();
+        return handle;
+}
+```
+
+```c#
+//为什么要用IJob，因为只添加了一个渲染批次，渲染这一个批次对顺序有要求
+//如果前面添加了多个渲染批次，就可以用IJobParallelFor，可以让每个批次并行计算，但是每个批次内要顺序执行
+
+//FrustumPlanes.Intersect2(planes, aabb)
+//这个方法可以判断每个物体的AABB是否在摄像机显示区域，返回三个状态
+//Unity.Rendering.FrustumPlanes.IntersectRersult.In
+//Unity.Rendering.FrustumPlanes.IntersectRersult.Partial
+//Unity.Rendering.FrustumPlanes.IntersectRersult.Out
+[BurstCompile]
+public struct CullingJob : IJob {
+    [ReadOnly] public NativeArray<Matrix4x4> matrixes;
+    [DeallocateOnJobCompletion] [ReadOnly] public 
+        NativeArray<Unity.Rendering.FrustumPlane.PlanePacket4> planes;
+    public NativeArray<BatchVisibility> batchVisibility;
+    public NativeArray<int> visibleIndices;
+    public void Execute() {
+        //遍历这个批次的每个元素
+        for (var i = 0; i < batchVisibility.Length; i++) {
+            var batchVisib = batchVisibility[i];
+            int visibleInstancesIndex = 0;
+            //因为立方体的是1米，所以Extents就是0.5，如果画多个不同Mesh，这个值从外面传入
+            AABB localBond = new AABB() { Center = Vector3.zero, Extents = Vector3.one * 0.5f };
+            for (int j = 0; j < matrixes.Length; j++) {
+                //计算每个AABB的世界坐标系的区域
+                var aabb = AABB.Transform(matrixes[j], localBond);
+                //判断每个元素是否在摄像机中
+                if (Unity.Rendering.FrustumPlanes.Intersect2(planes, aabb) != 
+                    Unity.Rendering.FrustumPlanes.IntersectResult.Out) {
+                        //如果摄像机能看到正确设置的index
+                        visibleIndices[visibleInstancesIndex] = batchVisib.offset + j; 
+                        //添加参与渲染的元素的数量
+                        visibleInstancesIndex++;
+                    }
+            }
+            //最终计算出真正参与渲染的元素数量，以及不显示的元素
+            batchVisib.visibleCount = visibleInstancesIndex;
+            batchVisibility[i] = batchVisib;
+        }
+    }
+}
+
+private void OnDestroy() {
+    if (m_BatchRendererGroup != null) {
+        m_BatchRendererGroup.Dispose();
+        m_BatchRendererGroup = null;
+    }
+}
+```
+
+这里的裁切要在Frame Debugger中查看，Scene中看不出来  
+可以等物体改变再裁切，固定间隔裁切，不需要每帧运行  
+
+#### 更新颜色
+需要自己实现shader，更改color属性  
+```c#
+[MaterialProperty("_Color", MaterialPropertyFormat.Float4)]
+
+public struct MyOwnColor : IComponentData {
+    public float4 Value;
+}
+
+class AnimateMyOwnColorSystem : SystemBase {
+    protected override void OnUpdate() {
+        Entities.ForEach((ref MyOwnColor color, in MyAnimationTime t)=>{
+            color.Value = new float4(
+                math.cos(t.Value + 1f),
+                math.cos(t.Value + 2f),
+                math.cos(t.Value + 3f),
+                1f
+            );
+        }).Schedule();
+    }
+}
+```
+
+#### RenderMesh原理
+
+就是在多线程中准备数据，再调用绘制API  
+
+```c#
+protected override JobHandle OnUpdate(JobHandle inputDeps) {
+    inputDeps.Complete(); // todo
+
+    m_InstancedRenderMeshBatchGroup.CompleteJobs();
+    m_InstancedRenderMeshBatchGroup.ResetLod();
+
+    Profiler.BeginSample("UpdateFrozenRenderBatches");
+    UpdateFrozenRenderBatches();
+    Profiler.EndSample();
+
+    Profiler.BeginSample("UpdateDnamicRenderBatches");
+    UpdateDynamicRenderBatches();
+    Profiler.EndSample();
+
+    m_InstancedRenderMeshBatchGroup.LastUpdatedOrderVersion = 
+        EntityManager.GetComponentOrderVersion<RenderMesh>();
+
+    return new JobHandle();
+}
+```
+
+#### ECS优化头顶血条
+
+GPU Instancing必须满足相同Mesh和相同材质  
+选学MaterialPropertyBlock  
+
+创建SpriteAtlas图集，可以拖文件夹进去  
+写脚本，传入Shader，Sprite  
+BatchRendererGRoup.AddBatch  
+ECS负责修改坐标  
+1，参与渲染的sprite数量变化，重新AddBatch  
+2，参与渲染的sprite坐标变化，Job里计算坐标
+3，参与渲染的sprite无变化，重新刷新MaterialPropertyBlock  
+
+```c#
+using System.Collections.Generic;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
+using UnityEngine;
+using unityEngine.Rendering;
+using static Unity.Mathematics.math;
+
+public class GSprite : MonoBehaviour {
+    public struct ECS {
+        public Vector3 position;
+        public Vector3 scale;
+        public Vector2 pivot;
+    }
+    private BatchRendererGroup m_BatchRendererGroup;
+    private Mesh m_Mesh;
+    private Material m_Material;
+    private int m_BatchIndex = -1;
+    private JobHandle m_Handle;
+    private NativeList<ECS> m_SpriteData;
+    private List<Vector4> m_SpriteDataOffset = new List<Vector4>();
+
+    public Sprite sprite1;
+    public Sprite sprite2;
+    public Sprite sprite3;
+    public Shader shader;
+
+    void Start() {
+        m_SpriteData = new NativeList<ECS>(100, Allocator.Persistent);
+        m_Mesh = Resources.GetBuiltionResource<Mesh>("Quad.fbx");
+        m_Material = new Material(shader) { enableInstancing = true };
+        m_Material.mainTexture = sprite1.texture;
+
+        //显示图片的一部分
+        AddSprite(sprite1, Vector3.zero, Vector3.one, 0.5f);
+        //显示完整图片，缩小
+        AddSprite(sprite2, Vector3.zero + new Vector3(1,0,0), Vector3.one * 0.5f, 1f);
+        //显示完整图片
+        AddSprite(sprite3, Vector3.zero + new Vector3(1,1,0), new Vector3(10,2,1), 1f);
+
+        Refresh();
+    }
+
+    void AddSprite(Sprite sprite, Vector2 localPosition, Vector2 localScale, float slider) {
+        float perunit = sprite.pixelsPerUnit;
+        Vector3 scale = new Vector3((sprite.rect.width / perunit) * localScale.x,
+            (sprite.rect.height / perunit) * localScale.y, 1f);
+        Vector4 rect = GetSpreiteRect(sprite);
+        scale.x *= slider;
+        rect.x *= slider;
+
+        ECS obj = new ECS();
+        obj.position = localPosition;
+        obj.piovt = new Vector2(sprite.piovt.x / perunit * localScale.x,
+            sprite.piovt.y / perunit * localScale.y);
+        obj.scale = scale;
+        m_SpriteData.Add(obj);
+        m_SpriteDataOffset.Add(rect);
+    }
+
+    private void Refresh() {
+        //1，参与渲染的sprite数量发生变化，需要重新addbatch
+        RefreshElement();
+        //2，参与渲染的sprite坐标发生变化，在job重新计算坐标
+        RefreshPosition();
+        //3，无变化，重新刷新MaterialPropertyBlock
+        //RefreshBlock();
+    }
+
+    private void RefreshElement() {
+        if (m_BatchRendererGroup == null) {
+            m_BatchRendererGroup = new BatchRendererGroup(OnPerformCulling);
+        }
+        else {
+            m_BatchRendererGroup.RemoveBatch(m_BatchIndex);
+        }
+        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        block.SetVectorArray("_Offset", m_SpriteDataOffset);
+        m_BatchIndex = m_BatchRendererGroup.AddBatch(
+            m_Mesh,
+            0,
+            m_Material,
+            0,
+            ShadowCastingMode.Off,
+            false,
+            false,
+            default(Bounds),
+            m_SpriteData.Length,
+            block,
+            null
+        );
+    }
+
+    void RefreshPosition() {
+        m_Handle.Complete();
+
+        m_Handle = new UpdateMatrixJob {
+            Matrices = m_BatchRendererGroup.GetBatchMatrices(m_BatchIndex),
+            objects = m_SpriteData,
+        };
+        m_Handle.Schedule(m_SpriteData.Length, 32);
+    }
+
+    void RerfreshBlock() {
+        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        block.SetVectorArray("_Offset", m_SpriteDataOffset);
+        m_BatchRendererGroup.SetInstancingData(m_BatchIndex, m_SpriteData.Length, block);
+    }
+
+    public JobHandle OnPerformCulling(BatchRendererGroup rendererGroup, 
+        BatchCullingContext cullingContext) {
+            //sprite不需要处理镜头裁切，这里直接完成job
+            m_Handle.Complete();
+            return m_Handle;
+    }
+
+    [BurstCompile]
+    private struct UpdateMatrixJob : IJobParallelFor {
+        public NativeArray<Matrix4x4> Matrices;
+        [ReadOnly] public NativeList<ECS> objects;
+        public void Execute(int index) {
+            //通过锚点计算sprite实际的位置
+            ECS go = objects[index];
+            var position = go.position;
+            float x = position.x + (go.scale.x * 0.5f) - go.pivot.x;
+            float y = position.y + (go.scale.y * 0.5f) - go.pivot.y;
+
+            Matrices[index] = Matrix4x4.TRS(float3(x, y, position.z),
+                Unity.Mathematices.quaternion.identity,
+                objects[index].scale);
+        }
+    }
+
+    private Vector4 GetSpriteRect(Sprite sprite) {
+        var uvs = sprite.uv;
+        Vector4 rect = new Vector4();
+        rect[0] = uvs[1].x - uvs[0].x;
+        rect[1] = uvs[0].y - uvs[2].y;
+        rect[2] = uvs[2].x;
+        rect[3] = uvs[2].y;
+        return rect;
+    }
+
+    private void OnDestroy() {
+        if (m_BatchRendererGroup != null) {
+            m_BatchRendererGroup.Dispose();
+            m_BatchRendererGroup = null;
+        }
+        m_SpriteData.Dispose();
+    }
+}
+```
+
+```c++
+//渲染区域需要动态传入Shader
+Shader "ECSSprite"
+{
+    Properties
+    {
+        _MainTex("Texture", 2D) = "white" {}
+        _Offset("_Offset", Vector) = (1,1,0,0)
+    }
+    SubShader
+    {
+        Tags {"Queue"="Transparent" "IgnoreProjector"="True" "RenderType"="Transparent" }
+        Blend
+        SrcAlpha
+        OneMinusSrcAlpha
+        Pass
+        {
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_instancing
+            #include "UnityCG.cginc"
+            #pragma target 3.0
+
+            struct appdata
+            {
+                float4 vertex : POSITION;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+                float2 uv : TEXCOORD0;
+            };
+
+            struct v2f
+            {
+                float2 uv : TEXCOORD0;
+                float4 vertex : SV_POSITION;
+            };
+
+            sampler2D _MainTex;
+            float4 _MainTex_ST;
+
+            UNITY_INSTANCING_BUFFER_START(Props)
+            UNITY_DEFINE_INSTANCED_PROP(fixed4, _Offset)//渲染区域
+            UNITY_INSTANCING_BUFFER_END(Props)
+
+            v2f vert (appdata v)
+            {
+                v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                o.vertex = UnityObjectToClipPos(v.vertex);
+                fixed4 l = UNITY_ACCESS_INSTANCED_PROP(Props, _Offset);
+                o.uv = v.uv.xy * 1.xy + 1.zw;
+                return o;
+            }
+
+            fixed4 frag(v2f i) : SV_Target
+            {
+                //sample the texture
+                fixed col = tex2D(_MainTex, i.uv);
+                return col;
+            }
+            ENDCG
+        }
+    }
+}
+```
+结果：一个DrawCall渲染了多个图片，还能修改位置  
+
+#### GPU蒙皮
+
+骨骼有Animation关键帧动画  
+蒙皮标记每个骨骼对应影响到的那些顶点  
+权重控制一个顶点受到多个骨骼影响  
+
+骨骼数量较少， 60到上百  
+顶点数以万计  
+因此蒙皮计算量更大，考虑在GPU蒙皮  
+
+ProjectSetting GPU Skinning  
+需要如 OpenGL ES 3.0 Transform feedback传回功能  
+将顶点计算放在shader的顶点着色器中，将每帧骨骼变换的结果传入Shader  
+顶点Shader计算完成，将蒙皮结果返回给CPU， 可以缓存起来下次使用  
+防止GPU多次计算蒙皮信息  
+
+GPU骨骼变化  
+动画文件要转换成贴图，挂点要保存静态数据，查在哪个位置  
+占内存，GPU不好就没办法用  
+
+```c#
+InstanceData data = block.Value.instanceData;
+if (useInstancing) {
+#if UNITY_EDITOR
+    PreparePackageMaterial(package, vertexCache, k);
+#endif
+    package.propertyBlock.SetFloatArray("frameIndex", data.frameIndex[k][i]);
+    package.propertyBlock.SetFloatArray("preFrameIndex", data.preFrameIndex[k][i]);
+    package.propertyBlock.SetFloatArray("transitionProgress", data.transitionProgress[k][i]);
+    Graphics.DrawMeshInstanced(vertexCache.mesh,
+        j,
+        package.material[j];
+        data.worldMatrix[k][i],
+        package.instancingCount,
+        package.propertyBlock,
+        vertexCache.shadowcastingMode,
+        vertexCache.receiveShadow,
+        vertexCache.layer
+        );
+}
+```
+
+```c++
+//动画烘焙的图片上记录着每一帧骨骼变换的数据，Shader中要知道当前运行到第几帧，前一帧进度
+//需要从CPU传递给shader
+UNITY_INSTANCING_CBUFFER_START(Props)
+    UNITY_DEFINE_INSTANCED_PROP(float, preFrameIndex)
+    UNITY_DEFINE_INSTANCED_PROP(float, frameIndex)
+    UNITY_DEFINE_INSTANCED_PROP(float, transitionProgress)
+UNITY_INSTANCING_CBUFFER_END
+```
+
+```c++
+//顶点着色器，顶点对应的信息在蒙皮图片中
+//每个顶点都计算出当前帧的矩阵信息，动画就播放了
+int preFrame = curFrame;
+int nextFrame = curFrame + 1.0f;
+half4x4 localToWorldMatrixPre = loadMatFromTexture(preFrame, bone.x) * w.x;
+localToWorldMatrixPre += loadMatFromTexture(preFrame, bone.y) * max(0, w.y);
+localToWorldMatrixPre += loadMatFromTexture(preFrame, bone.z) * max(0, w.z);
+localToWorldMatrixPre += loadMatFromTexture(preFrame, bone.w) * max(0, w.w);
+
+half4x4 localToWorldMatrixNext = loadMatFromTexture(nextFrame, bone.x) * w.x;
+localToWorldMatrixNext += loadMatFromTexture(preFrame, bone.y) * max(0, w.y);
+localToWorldMatrixNext += loadMatFromTexture(preFrame, bone.z) * max(0, w.z);
+localToWorldMatrixNext += loadMatFromTexture(preFrame, bone.w) * max(0, w.w);
+```
+
+#### Job动画系统
+
+如果用cpu动画，Unity提供了Job骨骼动画  
+播放动画时，修改骨骼某个节点的朝向，之前无法做到  
+
+利用AnimationScriptPlayable可以播放动画，不用创建AnimationController  
+新版Animator效率提升  
+
+```c#
+[RequireComponent(typeof(Animator))]
+public class PlayAnimationSample : MonoBehaviour {
+    public AnimationClip clip;
+    void Start() {
+        PlayableGraph playableGraph = PlayableGraph.Create();
+        playableGraph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
+        var playableOutput = AnimationPlayableOutput.Create(playableGraph,
+            "Animation", GetComponent<Animator>());
+        var clipPlayable = AnimationClipPlayable.Create(playableGraph, clip);
+        playableOutput.SetSourcePlayable(clipPlayable);
+        playableGraph.Play();
+    }
+}
+```
+
+#### 物理引擎
+
+PhysicsBody代替Rigidbody  
+PhysicShape代替Collider  
+PhysicMaterial取消  
+
+```c#
+//Raycast
+public Entity Raycast(float3 RayFrom, float3 RayTo) {
+    var world = World.DefaultGameObjectInjectionWorld;
+    var physicsWorldSystem = world.GetExistingSystem<Unity.Physics.Systems.BuildPhysicsWorld>();
+    var collisionWorld = physicsWorldSystem.PhysicsWorld.CollisionWorld;
+    RaycastInput input = new RaycastInput() {
+        Start = RayFrom,
+        End = RayTo,
+        Filter = new CollisionFilter() {
+            BelongsTo = ^0u,
+            CollidesWith = ^0u,
+            GroupIndex = 0
+        }
+    };
+
+    Unity.Physics.RaycastHit hit = new Unity.Physics.RaycastHit();
+    bool haveHit = collisionWorld.CastRay(input, out hit);
+    if (haveHit) {
+        Entity e = physicsWorldSystem.PhysicsWorld.Bodies[hit.RigidBodyIndex].Entity;
+        return e;
+    }
+    return Entity.Null;
+}
+
+private void Update() {
+    if (Input.GetMouseButton(0)) {
+        UnityEngine.Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        //发送射线找到点击的实体
+        Entity entity = Raycast(ray.origin, ray.direction * 100f);
+        if (entity != Entity.Null) {
+            //修改实体渲染的颜色
+            var manager = World.DefaultGameObjectInjectionWorld.EntityManager;
+            var renderMesh = manager.GetSharedComponentData<RenderMesh>(entity);
+            renderMesh.material.color = Color.black;
+        }
+    }
+}
+```
+
+```c#
+// Trigger
+class TriggerSystem : JobComponentSystem {
+    [BurstCompile]
+    struct TriggerJob : ITriggerEventsJob {
+        public void Execute(TriggerEvent triggerEvent) {
+            //碰撞时同时出发的两个实体对象
+            Debug.Log("A: " + triggerEvent.Entities.EntityA);
+            Debug.Log("B: " + triggerEvent.Entities.EntityB);
+        }
+    }
+    BuildPhysicsWorld word;
+    StepPhysicsWorld step;
+    protected override void OnCreate() {
+        base.OnCreate();
+        word = World.GetOrCreateSystem<BuildPhysicsWorld>();
+        step = World.GetOrCreateSystem<StepPhysicsWorld>();
+    }
+    protected override JobHandle OnUpdate(JobHandle inputDeps) {
+        TriggerJob triggerJob = new TriggerJob();
+        //开启碰撞检测Job
+        return triggerJob.Schedule(step.Simulation, ref word.PhysicsWorld, inputDeps);
+    }
+}
+```
+
+```c#
+// 动态添加碰撞
+public Entity CreateDynamicSphere(RenderMesh displayMesh, float radius, float3 position, quaternion orientation) {
+    BlobAssetReference spCollider = Unity.Physics.SphereCollider.Create(float3.zero, radius);
+    return CreateBody(displayMesh, position, orientation, spCollider, float3.zero, float3.zero, 1.0f, true);
+}
+
+public unsafe Entity CreateBody(RenderMesh displayMesh, float3 position, quaternion orientation, 
+    BlobAssetReference collider, float3 linearVelocity, float3 angularVelocity, float mass, bool isDynamic) {
+        EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+        ComponentType[] componentTypes = new ComponentType[isDynamic ? 7 : 4];
+
+        componentTypes[0] = typeof(RenderMesh);
+        componentTypes[1] = typeof(TranslationProxy);
+        componentTypes[2] = typeof(RotationProxy);
+        componentTypes[3] = typeof(PhysicsCollider);
+
+        if (isDynamic) {
+            componentTypes[4] = typeof(PhysicsVelocity);
+            componentTypes[5] = typeof(PhysicsMass);
+            componentTypes[6] = typeof(PhysicsDamping);
+        }
+
+        Entity entity = entityManager.CreateEntity(componentTypes);
+        entityManager.SetSharedComponentData(entity, displayMesh);
+        entityManager.AddComponentData(entity, new Translation {Value = position});
+        entityManager.AddComponentData(entity, new Rotation {Value = orientation});
+        entityManager.SetComponentData(entity, new PhysicsCollider {Value = collider});
+        
+        if (isDynamic) {
+            Collider* colliderPtr = (Collider*)collider.GetUnsafePtr();
+            entityManager.SetComponetnData(entity, PhysicsMass.CrateDynamic(colliderPtr->MassProperties, mass));
+
+            float3 angularVelocityLocal = math.mul(math.inverse(colliderPtr->MassProperties.MassDistribution.Transform.rot), angularVelocity);
+            entityManager.SetComponentData(entity, new PhysicsVelocity() {
+                Linear = linearVelocity,
+                Angular = andularVelocityLocal
+            });
+            entityManager.SetComponentData(entity, new PhysicsDamping() {
+                Linear = 0.01f,
+                Angular = 0.05f
+            });
+        }
+        return entity;
+}
+```
+
+#### 加载效率 更新效率
+
+```c#
+//加载
+float t = Time.realtimeSinceStartup;
+for (int i = 0; i < initCount; i++) {
+    Vector3 pos = UnityEngine.Random.insideUnitSphere * 5f;
+    Instantiate(prefab, pos, Quaternion.identity);
+}
+t = (Time.realtimeSinceStartup - t) * 1000f;
+Debug.LogFormat("Instantiate: {0} ms", t);
+
+float t1 = Time.realtimeSinceStartup;
+for (int i = 0; i < initCount; i++) {
+    Vector3 pos = UnityEngine.Random.insideUnitSphere * 5f;
+    Entity entity = m_Manager.Instantiate(m_EntityPrefab);
+    m_Manger.SetComponentData(entity, new Translation {Value = pos});
+}
+t1 = (Time.realtimeSinceStartup - t1) * 1000f;
+Debug.LogFormat("ECS Instantiate: {0} ms", t1);
+```
+
+```c#
+//更新
+private void Update() {
+    if(!useEcs) {
+        for (int i = 0; i < initCount; i++) {
+            var go = m_GameObjects[i];
+            float3 pos = go.transform.position;
+            pos.y += 0.1f;
+            if (pos.y > 5f)
+                pos.y = m_InitPos[i].y;
+            go.transform.position = pos;
+        }
+    }
+}
+
+[BurstCompile]
+private struct MyJob : IJobForEach<Translation, InitData> {
+    public void Execute(ref Translation translation, [ReadOnly] ref InitData initData) {
+        float3 pos = translation.Value;
+        pos.y = 0.1f;
+        if (pos.y > 5f)
+            pos.y = initData.Value.y;
+        translation.Value = pos;
+    }
+}
+```
+
+#### 场景切块加载
+
+ECS提供了将场景批量转换的功能，可以用这个功能将场景分块  
+SubScene  
+根据角色行走的坐标来动态启动，卸载对应块  
+最好保证每个块的顺序是从左到右从上到下的  
+默认取消勾选AutoLoadScene，启动游戏就不会加载这个块了  
+
+```c#
+using UnityEngine;
+using Unity.Entities;
+using System.Collections.Generic;
+using Unity.Scenes;
+
+public calss MapSlice : MonoBehaviour {
+    const int CHUCK_COUT = 4;
+    public Transform hero;
+    public SubScene[] subScenes;
+    private SceneSystem m_SceneSystem;
+    private int m_LastX = -1, m_LastZ = -1;
+    private Dictionary<int, SubScene> m_LastLoadScene = new Dictionary<int, SubScene>();
+    private HashSet<int> m_CurrentLoadSceneIndex = new HashSset<int>();
+
+    private void Start() {
+        var world = World.DefaultGameObjectInjectionWorld;
+        m_SceneSystem = world.GetOrGreateSystem<SceneSystem>();
+    }
+
+    private void Update() {
+        int x = (int)(hero.transform.position.x / 10f);
+        int z = (int)(hero.transform.position.z / 10f);
+        bool isChange = (x != m_LastX) || (z != m_LastZ);
+        if (isChange) {
+            m_LastX = x;
+            m_LastZ = z;
+            m_CurrentLoadSceneIndex.Cleaer();
+            for (int i = x - 1; i <= x + 1; i++) {
+                for (int j = z - 1; j <= z + 1; j++) {
+                    if (i >= 0 && j >= 0 && i < CHUNK_COUT && j <CHUNK_COUT) {
+                        int index = j * CHUNK_COUT + i;
+                        if (index < subScenes.Length) {
+                            m_LastLoadScene[index] = subScenes[index];
+                            m_CurrentLoadSceneIndex.Add(index);
+                            m_SceneSystem.LoadSceneAsync(subScenes[index].SceneGUID);
+                        }
+                    }
+                }
+            }
+            //卸载不在当前九宫格的块
+            List<int> keys = new List<int>(m_LastLoadScene.Keys);
+            for (int i = 0; i < keys.Count; i++) {
+                var key = keys[i];
+                if (!m_CurrentLoadSceneIndex.Contains(key)) {
+                    m_SceneSystem.UnloadScene(m_LastLoadScene[key].SceneGUID);
+                    m_LastLoadScene.Remove(key);
+                }
+            }
+        }
+    }
+}
+```
 
 ## [<主页](https://www.wangdekui.com/)
