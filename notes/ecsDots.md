@@ -1,7 +1,7 @@
 ### [<主页](https://www.wangdekui.com/)
 
 [指南第二部分](#index_second)
-[文档部分](#index_documents)
+[文档与博客](#index_documents)
 
 #### 包安装
 Entities  
@@ -2433,7 +2433,7 @@ struct ActivateButtonJob : IJobForEachWithEntity<MouseClicked> {
 
 <div id="index_documents"></div>
 
-# 文档
+# 文档与博客
 
 #### Hybrid Renderer  
 ```
@@ -2600,6 +2600,240 @@ class AnimateMyOwnColorSystem : SystemBase {
         .Schedule();
     }
 }
+```
+
+#### ECS深潜
+
+https://rams3s.github.io/blog/2019-01-09-ecs-deep-dive/  
+
+```
+OOP -> A GameObject is a container.
+ECS -> An entity is a key.
+
+entity 只是一个id，唯一目的是将组件逻辑的分组在一起
+component 只保存数据
+system 负责处理/转换存储在component中的数据，为此遍历同类Component
+
+好处：
+内存/缓存友好
+--仅从内存读取使用的内容
+--定期的内存访问有助于硬件预读
+--紧闭打包的数据更好地利用缓存
+--没有多余的填充
+利用多核并行
+--System明确依赖相关Component
+自动矢量化代码
+--同时处理Component Group
+```
+
+```
+Hybrid ECS
+GameObjectEntity 在OnEnable时，自动创建Entity并注册到EntityManager
+ComponentDataWrapper 编辑器可以编辑
+
+[Serializable]
+public struct RotSpeed : IComponentData {
+    public float Value;
+}
+public class RotSpeedComponent : ComponentDataWrapper<RotationSpeed>{}
+```
+
+```
+Archetype
+组合
+ECS + DoD -> An archetype is a unique set of arrays.
+每次向实体中添加或者删除组件时，都必须将其移动到另一个原型中
+这是有成本的，尤其是如果非常频繁地对许多实体执行此操作时
+设计代码要考虑到这一事实
+
+EntityArchetype archetype = EntityManager.CreateArchetype(
+    typeof(Position),
+    typeof(Rotation),
+    typeof(LinearMovement));
+var entity = EntityManager.CreateEntity(archetype);
+
+实例化Prefab相当于框架自动管理这些原型
+向组件添加删除组件时，该框架负责在原型之间移动实体
+```
+
+```
+Chunk
+Archetypes are made of chunks.
+数组由于删除，插入困难，不适用原型
+原型使用16kb块的链接列表
+
+System
+A system is a data transform.
+
+Group
+A group is a query on archetypes.
+系统不能立即在原型上工作，每个组都是对原型的查询。
+```
+
+```c#
+class PositionToRigidbodySystem : ComponentSystem {
+    ComponentGroup m_Group;
+    protected override void OnCreateManager(int capacity) {
+        m_Group = GetComponentGroup(new EntityArchetypeQuery{
+            All = new[] {
+                ComponentType.Create<Position>(),
+                ComponentType.Create<RigidBody>()
+            }
+        });
+    }
+    protected override void OnUpdate() {
+        var positionTypeReadOnly = GetArchetypeChunkComponentType<Position>(true);
+        var rigidbodyTypeRW = GetArchetypeChunkComponentType<Rigidbody>();
+
+        NativeArray<ArchetypeChunk> chunks =
+            m_Group.CreateArchetypeChunkArray(Allocator.TempJob);
+
+        for (var chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++) {
+            ArchetypeChunk chunk = chunks[chunkIndex];
+            NativeArray<Position> rotations = chunk.GetNativeArray(positionTypeReadOnly);
+            NativeArray<Rigidbody> rigidbodies = chunk.GetNativeArray(rigidbodyTypeRW);
+
+            for (var i = 0; i < chunk.Count; i++) {
+                rigidbodies[i].position = positions[i].Value;
+            }
+        }
+
+        chunks.Dispose();
+    }
+}
+```
+
+```
+减法组件 Subtractive Component
+比如，波坏系统不需要处理具有无敌组件的实体，不论他们拥有什么其他组件
+减法组件可以指定哪些组件不能进入结果集
+
+标签组件 Tag Component
+更精确的查询
+namespace Sample.Boids {
+    [Serializable]
+    public struct BoidTarget : IComponentData{}
+
+    [UnityEngine.DisallowMultipleComponent]
+    public class BoidTargetComponent : ComponentDataWrapper<BoidTarget>{}
+}
+
+共享组件 Shared components are for grouping.
+维持实体之间的严格秩序是昂贵的，却不一定合乎需要或者有用
+比如共享网格和材质
+每当添加共享组件到实体，实体都将按块分组，给定块中的所有实体
+由此可知：共享组件的值不应该经常更改，
+因为他们需要将所有组件数据从更改后的实体记忆到另一个块中
+还有：一个块可以存储多个共享组件
+使用多个共享组件时请一定要小心，不仔细进行操作，可能导致块的占用率低，从而浪费内存
+因为共享组件的值的每种组合最终都将位于不同的块中
+Debugger可以帮助发现这种问题
+好例子：
+public struct MeshInstanceRenderer : ISharedComponentData {
+    public Mesh mesh;
+    public Material material;
+    public ShadowCastingMode castShadows;
+    public bool receiveShadows;
+}
+```
+
+```
+世界
+worlds are for isolation.
+世界是孤立的，每个World包含一个EntityManager和一组ComponentSystems
+一个世界的系统，实体，原型不适用于另一个世界
+
+通常，使用一个World进行仿真，另一个进行渲染
+
+在Megacity演示中，世界用于流式传输。一旦准备好一个新世界，它就会迅速合并，并且活动并渲染该世界。
+```
+
+```
+反应系统
+
+希望知道何时，实体首次被系统看到，执行初始设置
+某个实体何时离开同一个系统，实体组执行清理
+系统可能对合适更改组件感兴趣
+
+“那里有一个，那里有很多。”
+对于常规更新是正确的，对于低频率事件，也是。
+因此我们要避免，每次实体增删组件时，组件值更新时，都将调用回调。
+
+检测新的和删除的实体
+
+不好的方法：
+扫描整个实体列表，与上一次更新的实体列表比较
+
+一种替代方案：
+利用标签组件检测新的实体。在实体更改状态以供新系统处理时，
+添加一个标签组件，并在首次处理该组件时将其删除。
+但是这不好，又容易出错，你必须知道要添加哪个标签组件。
+检测实体的去除也困难
+
+更好的方法：
+系统状态组件SSC ISystemStateComponent
+public struct LocalToWorld : ISystemStateComponentData {
+    public float4x4 Value;
+}
+case 0: 
+Position/Rotation/Scale存在LocalToWorld不存在，
+这是一个新的实体，TransformSystem可以执行此实体所需的任何初始设置，
+然后将LocalToWorld组件添加到其中
+case 1:
+Position/Rotation/Scale存在LocalToWorld也存在，
+这是一个跟踪的实体，没什么特别的
+case 2:
+Position/Rotation/Scale不存在LocalToWorld存在，
+这是一个删除的实体，TransformSystem可以进行内部清理并删除系统状态组件本身
+
+SSC很好地解决了添加/删除检测问题，但是，如何跟踪组件值的更改呢？
+ECS框架无法为我们提供每个实体的检测，因为这将需要大量记录，而且效率低。
+但是提供了每块可能变化的指示。
+
+每个块中，每个数组带有一个版本号。
+只读数组的版本号是在访问时不会被修改
+但是，系统访问读写数组时，其版本号将分配给EntityManager.GlobalSystemVersion
+
+有了版本号，我们手动遍历块，可以确定是否已经修改某些组件的值
+var chunkRotationsChanged = ChangeVersionUtility.DidAddOrChange(
+    chunk.GetComponentVersion(rotationType), lastSystemersion);
+```
+
+```
+组件系统
+Component System
+在主线程上运行，不推荐
+
+作业组件系统
+Job Component System
+在主线程上安排工作线程上执行的作业，在工作线程上运行
+
+同步点
+Sync Point
+混合CS 和 JCS时应格外小心：所有结构更改都具有硬性同步点
+例如，实体创建销毁，组件增加删除
+无论何时发生这些事件之一，（在主线程上）
+JCS计划的所有作业都必须在执行该更改之前完成，这回导致巨大的停顿
+
+！！！坚持使用JCS，不要将它们和CS混合使用，除非你知道自己在做什么
+public class RotationSpeedSystem : JobComponentSystem {
+    [BurstCompile]
+    struct RotationSpeedRotation : IJobProcessComponentData<Rotation, RotationSpeed> {
+        public float dt;
+        public void Execute(ref Rotation rotation, [ReadOnly]ref RotationSpeed speed) {
+            rotation.Value = math.mul(
+                math.normalize(rotation.Value),
+                quaternion.axisAngle(math.up(), speed.Value * dt));
+        }
+    }
+
+    protected override JobHandle OnUpdate(JobHandle inputDeps) {
+        var job = new RotationSpeedRotation() {dt = Time.deltaTime};
+        return job.Schedule(this, 64, inputDeps);
+    }
+}
+
+也可以使用遍历作业中的块 IJobChunk
 ```
 
 ## [<主页](https://www.wangdekui.com/)
