@@ -200,7 +200,7 @@ public boolean onOptionsItemSelected(@NonNull MenuItem item) {
 启动服务  
 发送广播  
 
-#### 显示Intent
+#### 显式Intent
 栈 此时结束SecondActivity，回到MainActivity  
 
 ```java

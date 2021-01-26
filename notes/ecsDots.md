@@ -1,9 +1,9 @@
 ### [<主页](https://www.wangdekui.com/)
 
-[第二部分](#second)
+[指南第二部分](#index_second)
+[文档部分](#index_documents)
 
 #### 包安装
-尽量用最新的 如果报错换版本  
 Entities  
 Mathematics  
 Hybrid Renderer  
@@ -11,12 +11,9 @@ Jobs
 Burst  
 Unity Physics  
 Havok PHysics for Unity  
+ShaderGraph  
 
-#### Entity Debugger
-场景不显示  
-
-#### Tiny
-Unity官方H5技术方案，使用了DOTS  
+# 指南
 
 ## 第一部分
 Data-Oriented Tech Stack 多线程 面向数据  
@@ -810,11 +807,7 @@ public class TestJobSystem : JobComponentSystem {
 }
 ```
 
-#### 总结
-
-
-
-<div id="second"></div>
+<div id="index_second"></div>
 
 ## 第二部分
 
@@ -2059,6 +2052,552 @@ public calss MapSlice : MonoBehaviour {
                 }
             }
         }
+    }
+}
+```
+
+#### Dynamic Buffers
+```c#
+[InternalBufferCapacity(8)]//设置动态缓冲区大小
+public struct DynamicData : IBufferElementData {
+    public int Value;
+}
+
+public struct StaticData : IComponentData {
+    public int Value;
+}
+
+private void Start() {
+    var world = World.DefaultGameObjectInjectionWorld;
+    var entityManager = world.EntityManager;
+    Entity entity = entityManager.Create(typeof(DynamicData), typeof(StaticData));
+    DynamicBuffer<DynamicData> buffers = entityManager.AddBuffer<DynamicData>(entity);
+    //根据情况添加0-8之间的动态数据
+    for (int i = 0; i < 7; i++)
+        buffers.Add(new DynamicData() { Value = i});
+    //传统的静态数据，一个组件只能添加一个整形数据，无法形成数组
+    entityManager.SetComponentData<StaticData>(entity, new StaticData() {Value = 0});
+    //获取数据的地方可能在另外一个类中，只要能拿到entity就可以遍历这段buffer
+    DynamicBuffer<DynamicData> GetBuffers = entityManager.GetBuffer<DynamicData>(entity);
+    foreach (DynamicData data in GetBuffers)
+        Debug.Log(data.Value);
+    //可以强制转换成指定的数组    
+    foreach (int integer in GetBuffers.Reinterpret<int>())
+    Debug.Log(integer);
+}
+```
+
+#### 寻找目标
+```c#
+var world = World.DefaultGameObjectInjectionWorld;
+var example5MoveSystem = world.GetOrCreateSystem<Example5MoveSystem>();
+example5MoveSystem.heroTransform = hero.transform;//设置中心位置
+
+public class Example5MoveSystem : JobComponentSystem {
+    //外部负责传入中心坐标
+    public Transform heroTransform;
+    EndSimulationEntityCommandBufferSystem m_EndSimulationEcbSystem;
+    protected override void OnCreate() {
+        base.OnCreate();
+        m_EndSimulationEcbSystem = world.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
+    }
+    protected override JobHandle OnUpdate(JobHandle inputDeps) {
+        float3 heroPos = heroTransform.position;
+        float dt = Time.DeltaTime;
+        float speed = 5f;
+        var ecb = m_EndSimulationEcbSystem.CreateCommandBuffer().ToConcurrent();
+
+        var JobHandle = this.Entities.WithAll<Example5Alias>()
+            .ForEach((Entity entity, int entityInQueryIndex, ref Translation translation, ref Rotation rotation)=>{
+                //每个符合条件的实体朝向中心移动
+                float3 heading = heroPos - translation.Value;
+                rotation.Value = quaternion.LookRotation(heading, math.up());
+                translation.Value = translation.Value + (dt * speed * math.forward(rotation.Value));
+                //当距离小于0.1时加入缓冲区
+                if(math.sqrDistance(translation.Value, heroPos) <= 0.01f)
+                    ecb.DestroyEntity(entityInQueryIndex, entity);
+            }).Schedule(inputDeps);
+
+        //统一执行缓冲区的操作
+        m_EndSimulationEcbSystem.AddJobHandleForEach(jobHandle);
+        return jobHandle;
+    }
+}
+
+//利用缓冲区创建实体，添加删除组件
+var e = ecb.CreateEntity(entityInQueryIndex);
+ecb.AddComponent<Translation>(entityInQueryIndex, e);
+
+//ComponentSystem在主线程执行，更加简洁
+//使用PostUpdateCommands 可以创建，删除实体，添加，删除组件
+public class Example5MoveSystem : CompnentSystem {
+    public Transform heroTransform;
+    protected override void OnUpdate() {
+        float3 heroPos = heroTransform.position;
+        float dt = Time.DeltaTime;
+        float speed = 5f;
+        this.Entities.WithAll<Example5Atlas>()
+            .ForEach((Entity entity, ref Translation translation, ref Rotation rotation)=>{
+                //每个符合条件的实体朝向中心移动
+                float3 heading = heroPos - translation.Value;
+                rotation.Value = quaternion.LookRotation(heading, math.up());
+                translation.Value = translation.Value + (dt * speed * math.forward(rotation.Value));
+                //当距离小于0.1时加入缓冲区
+                if(math.sqrDistance(translation.Value, heroPos) <= 0.01f)
+                    PostUpdateCommands.DestroyEntity(entity);
+            });
+    }
+}
+```
+
+#### 监听删除的实体和组件
+系统状态组件，如果有这个组件，DestroyEntity方法不会删除实体  
+ISystemStateComponentData  
+PostUpdateCommands.RemoveComponent删掉组件后  
+实体对象也会删除  
+
+```c#
+public struct Example6Alias : IComponentData{}
+public struct Example6AliasSystem : ISystemStateComponentData {}
+
+private void Update() {
+    if (Time.time - m_LastInitTime > 1f) {
+        m_LastInitTime = Time.time;
+
+        for (int i = 0; i < initCount; i++) {
+            Vector3 pos = UnityEngine.Random.insideUnitSphere * 10f;
+            Entity entity = m_Manager.Instantiate(m_EntityPrefab);
+            m_Manager.SetComponentData(entity, new Translation { Value = pos });
+            m_Manager.AddComponentData(entity, new Example6Alias());
+            //添加系统状态组件
+            m_Manager.AddComponentData(entity, new Example6AliasSystem());
+        }
+    }
+}
+
+//调用DestroyEntity后，实体没有删除，只剩下ISystemStateComponentData组件
+public class Example6EventMoveSystem : ComponentSystem {
+    protected override void OnUpdate() {
+        //找到所有包含Example6Alias组件但是不包含Example6Alias组件的实体
+        Entities.WithAll<Example6AliasSystem>()
+            .WithNone<Example6Alias>()
+            .ForEach((Entity entity) => {
+                Debug.LogFormat("entity {0}被删除! ", entity.Index);
+                //删除最后的系统状态组件，系统会自动删除实体
+                PostUpdateCommands.RemoveComponent<Example6AliasSystem>(entity);
+            });
+    }
+}
+```
+
+#### 优化查询遍历的速度
+
+只对坐标发生改变的组件进行更新  
+监听变化的组件  
+WithChangeFilter  
+不够精准  
+整个数据块都会被查询到  
+```c#
+[AlwaysSynchronizeSystem]
+public class Example7RemoveSystem : JobComponentSystem {
+    public Transform heroTransform;
+    EndSimulationEntityCommandBufferSystem m_EndSimulationEcbSystem;
+    protected override void OnCreate() {
+        base.OnCreate();
+        m_EndSimulationEcbSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
+    }
+    protected override JobHandle OnUpdate(JobHandle inputDeps) {
+        float3 heroPos = heroTransform.position;
+        var ecb = m_EndSimulationEcbSystem.CreateCommandBuffer().ToConcurrent();
+        var jobHandle = this.Entities
+            .WithAll<Example7Alias>()
+            .WithChangeFilter<Translation>()//监听变化的组件
+            .ForEach((Entity entity, int entityInQueryIndex, Translation transflation)=>{
+                //当它们距离小于0.1米时删除
+                if (math.sqrDistance(transflation.Value, heroPos) <= 0.1f)
+                    ecb.DestroyEntity(entityInQueryIndex, entity);
+            })
+            .WithoutBurst()
+            .Schedule(inputDeps);
+        m_EndSimulationEcbSystem.AddJobHandleForProducer(jobHandle);
+        return jobHandle;
+    }
+}
+```
+
+建议使用IJobChunk，根据块遍历  
+```c#
+[BurstCompile]
+struct MyJob : IJobChunk {
+    //传入坐标组件
+    [ReadOnly] public ArchetypeChunkComponentType<Translation> translationType;
+    //传入实体类型
+    [ReadOnly] public ArchetypeChunkEntityType entityType;
+    public float3 heroPos;
+    //缓冲区用于删除组件
+    public EntityCommandBuffer.Concurrent CommandBuffer;
+    //系统版本号
+    public unit LastSystemVersion;
+
+    public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex) {
+        //通过系统版本号和组件类型比较是否发生变化
+        var translationsChanged = chunk.DidChange(translationType, LastSystemVersion);
+        //如果块中的Translation数组没有变化则不进行遍历
+        if (!translationsChanged)
+            return;
+        //取出坐标组件数组
+        var translations = chunk.GetNativeArray(translationType);
+        //取出坐标组件对应的实体数组
+        var entities = chunk.GetNativeArray(entityType);
+
+        for (var i = 0; i < translations.Length; i++) {
+            if (math.sqrDistance(translation[i].Value, heroPos) <= 0.01f)
+                CommandBuffer.DestroyEntity(chunkIndex, entities[i]);
+        }
+    }
+}
+
+Entity m_Query = GetEntityQuery(typeof(Example7Alias), typeof(Translation));
+
+protected override JobHandle OnUpdate(JobHandle inputDeps) {
+    float3 heroPos = heroTransform.position;
+    var myJob = new MyJob() {
+        CommandBuffer = m_EndSimulationEcbSystem.CreateCommandBuffer().ToConcurrent(),
+        entityType = this.GetArchetypeChunkEntityType(),
+        translationType = this.GetArchetypeChunkComponentType<Translation>(true);
+        heroPos = heroPos,
+        LastSystemVersion = this.LastSystemVersion
+    };
+    var jobHandle = myJob.Schedule(m_Query, inputDeps);
+    m_EndSimulationEcbSystem.AddJobHandleForProducer(jobHandle);
+    return jobHandle;
+}
+```
+
+#### GPU Instancing 和 Entity结合
+
+创建实体并且绑定RenderSprite和RenderSpriteECS  
+```c#
+public struct RenderSprite : ISharedComponentData, IEquatable<RenderSprite> {
+    public Sprite sprite;
+    public bool Equals(RenderSprite other) {
+        return sprite == other.sprite;
+    }
+    public override int GetHashCode() {
+        int hash = 0;
+        if (!ReferenceEquals(sprite, null))
+            hash ^= sprite.GetHashCode();
+        return hash;
+    }
+}
+public struct RenderSpriteECS : IComponentData {
+    public Vector3 position;//显示坐标
+    public Vector3 scale;//显示缩放
+    public Vector2 piovt;//锚点
+    public int index;//索引
+}
+
+//Sprite位置变化再刷新，要监听变化
+public class Example11MoveSystem : JobComponentSystem {
+    protected override JobHandle OnUpdate(JobHandle inputDeps) {
+        var matrices = Example11.m_BatchRendererGroup.GetBatchMatrices(0);
+        var jobHandle = this.Entities
+            .WithAll<Example11Alias>()
+            .ForEach((ref RenderSpriteECS go)=>{
+                var position = go.position;
+                float x = position.x + (go.scale.x * 0.5f) - go.pivot.x;
+                float y = position.y + (go.scale.y * 0.5f) - go.pivot.y;
+                //根据RenderSpriteECS组件的坐标信息，修改BatchRendererGroup
+                matrices[go.index] = Matrix4x4.TRS(float3(x, y, position.z),
+                    Unity.Mathematics.quaternion.identity,
+                    go.scale);
+            })
+            .WithChangeFilter<RenderSpriteECS>()//这里当RenderSprite变化再更新
+            .Schedule(inputDeps);
+            jobHandle.Complete();
+            return inputDeps;
+    }
+}
+```
+
+GPU Instancing最大支持1023个，超过了就要多次调用Graphics.DrawMeshInstanced  
+这里用m_BatchRendererGroup.AddBatch代替Graphics.DrawMeshInstanced  
+超过1023个会自动分成多次调用，更方便  
+
+#### Animation Instancing
+
+需要把带有Animator的Prefab生成动画贴图  
+生成完成，在SkinnedMeshRenderer组件绑定自定义着色器，内含贴图  
+
+将Prefab绑定ConvertToEntity组件  
+选Convert And Inject Game Object不删除原始对象  
+已经有了Entity，使用ECS方式加载  
+```c#
+private void Update() {
+    float startTime = Time.realtimeSinceStartup;
+    if (useEcs) {
+        MyJob job = new MyJob();
+        job.frameCount = Time.frameCount;
+        job.rotations = m_Rotations;
+        job.Schedule(initCount, 54).Component();//放到job中完成
+
+        for (int i = 0; i < m_Transforms.Count; i++)
+            m_Transform[i].rotation = m_Rotations[i];
+    }
+    else {
+        for (int i = 0; i < m_Transforms.Count; i++) {
+            test();//耗时操作
+            m_Transforms[i].rotation = quaternion.AxisAngle(math.up(), (Time.frameCount % 360) * Mathf.Deg2Rad);
+        }
+    }
+    Debug.Log((Time.realtimeSinceStartup - startTime) * 1000) + "ms");//统计耗时
+}
+
+[BurstCompile]
+struct MyJob : IJobParallelFor {
+    [WriteOnly] public NativeArray<quaternion> rotations;
+    [ReadOnly] public int frameCount;
+    public void Execute(int index) {
+        test();//耗时操作
+        rotations[index] = quaternion.AxisAngle(math.up(), (frameCount % 360) * Mathf.Deg2Rad);
+    }
+}
+```
+
+```c#
+class MySystem : JobComponentSystem {
+    protected override JobHandle OnUpdate(JobHandle inputDeps) {
+        float startTime = Time.realtimeSinceStartup;
+        float a = UnityEngine.Time.frameCount;
+        this.Entities.WithAll<Example12Alias>();
+            .ForEach((Transform rotation)=>{
+                rotation.rotation = quaternion.AxisAngle(math.up(), (a % 360) * Mathf.Deg2Rad);
+            })
+            .WithoutBurst()
+            .Run();
+        Debug.Log((Time.realtimeSinceStartup - startTime) * 1000) + "ms");
+        return inputDeps;
+    }
+}
+```
+官方工程：  
+https://github.com/Unity-Technologies/Animation-Instancing  
+推荐第三方库：  
+https://github.com/joeante/Unity.GPUAnimation  
+
+#### 骨骼动画Demo
+
+Packages目录修改manifest.json  
+添加  
+"com.unity.animation":"0.3.0-preview.7",
+
+https://github.com/Unity-Technologies/Unity.Animation.Samples  
+
+```c#
+public class MyFirstAnimationClip : MonoBehaviour, IConvertGameObjectToEntity {
+    public AnimationClip Clip;
+
+    public void Convert(Entity entity, EntityManager dstManager, 
+        GameObjectConversionSystem conversionSystem) {
+            dstManager.AddComponentData(entity, new PlayClipComponent{
+                Clip = ClipBuilder.AnimationClipToDenseClip(Clip)
+            });
+    }
+}
+```
+
+#### 生命周期
+
+还是自己打印日志清楚一点  
+Initialization在引擎初始化最后执行  
+SimulationSystemGroup在引擎Update最后执行  
+LateSimulationSystemGroup在引擎LateUpdate之前执行  
+
+```c#
+//[UpdateInGroup(typeof(InitializationSystemGroup))]
+//[UpdateInGroup(typeof(SimulationSystemGroup))]
+[UpdateInGroup(typeof(PresentationSystemGroup))]
+public class MySystem : ComponentSystem {}
+
+[BurstCompile][RequireComponentTag(typeof(Tag_Button))]
+struct ActivateButtonJob : IJobForEachWithEntity<MouseClicked> {
+    public EntityCommandBuffer.Concurrent ECBSimulationBegin;
+    public EntityCommandBuffer.Concurrent ECBSimulationEnd;
+
+    public void Execute(Entity entity, int index, [ReadOnly] ref MouseClicked mouse) {
+        ECBSimulationBegin.AddComponent(index, target.Entity, typeof(Tag_Activated));
+        ECBSimulationEnd.RemoveComponent(index, target.Entity, typeof(Tag_Activated));
+    }
+}
+```
+
+<div id="index_documents"></div>
+
+# 文档
+
+#### Hybrid Renderer  
+```
+Unity 2020.1.0b3以上添加宏 ENABLE_HYBRID_RENDERER_V2
+如果entity拥有组件 LocalToWorld RenderMesh RenderBounds
+HybridRenderer自动条件需要的渲染组件，将处理后的entities添加到批处理
+用Unity现有的渲染体系去渲染它们
+
+如果要运行时添加实体，最好实例化prefab，而不是从头构建实体
+转换期间，prefab已经转换为最佳数据布局，从而提高性能
+
+HybridRenderer包含将各种GameObject转换为entities的转换系统
+如果要将GameObject转换为entities，可以将他们放进子场景，
+或者给子场景添加ConvertToEntity组件
+子场景在编辑器中转换并存储到磁盘
+ConvertToEntity会导致运行时转换
+Unity编辑器中的转换可显著提高场景加载性能
+
+转换过程：
+1转换系统将MeshRenderer和MeshFilter组件转换成entity上的RenderMesh组件
+依赖于Project中设置的渲染管道，转换系统还可能添加其他渲染依赖的组件
+2转换系统将GameObject层次结构中的LODGroup组件转换为MeshLODGroup组件
+LODGroup组件引用的每个entity都有一个MeshLODComponent
+3转换系统将每个Transform转换为entity的LocalToWorld
+根据变换的属性，转换系统还可能添加Translate,Rotation,NonUniformScale组件
+```
+
+```
+Hybrid Renderer V1
+支持的特性有限，不再继续开发
+不支持：
+Motion blur 运动模糊  (motion vectors missing) 运动矢量缺失
+Temporal antialiasing TXAA抗锯齿 (motion vectors missing) 运动矢量缺失
+LOD Fade
+Lightmaps
+RenderLayer (layered lighting) 分层照明
+TransformParams (correct lighting for inverse scale) 反比例的正确照明
+URP不支持的功能：
+Point lights and spot lights
+Light probes
+Reflection probes
+
+只支持基于 ShaderGraph 的shader
+内建shader像是 HDRP Lit 不支持
+
+如何设置shaders
+不同版本操作不同
+2019.3+ 在 ShaderGraph 自定义属性 勾选 Hybrid Instanced
+
+如果哪个shader或者material没设置正确，可能有显示问题
+还没有报错信息
+常见问题：
+1所有实体渲染到 (0,0,0)位置
+2闪烁或者颜色不正确，特别在DX12，Vulkan，Metal
+3闪烁/拉伸多边形，特别在DX12，Vulkan，Metal
+
+重要!!!
+Universal Render Pipeline 通用渲染管道URP
+Unity2020.1和SRP8.0.0增加了对URP的官方HybridRendererV1的支持
+旧版本问题多
+```
+
+```
+Hybrid Renderer V2
+2020.1中的新技术，在主要开发中
+新的GPU-persistent data model，GPU持久化模型
+直接从 Burst C# Jobs增量更新到显存
+
+V1的主线程瓶颈已经不存在
+渲染线程性能也得到改善
+新数据模型支持我们从C#提供shader的built-in数据
+使我们能实现缺少的HDRP和URP功能
+
+V2已经完全兼容以下着色器
+ShaderGraph, HDRP/Lit, HDRP/Unlit, URP/Lit, URP/Unlit
+并将支持更多
+
+新特性 2020.1+ hybridRenderer0.3.6：
+Official URP support (minimal feature set)
+Support for non-ShaderGraph shaders
+Motion blur (motion vectors)
+Temporal antialiasing (motion vectors)
+RenderLayer (layered lighting)
+TransformParams (correct lighting for inverse scale)
+Hybrid Entities: Subscene support for Light, Camera and other managed components
+混合实体：对光，相机，其他托管组件的子场景支持
+DisableRendering component (disable rendering of an entity)
+
+重要！！！
+实验性功能，已经在DX11，Vulkan，Matal下的编辑器和独立版本中验证
+目标是验证2020.2的DX12，移动设备，独立平台
+```
+
+```
+HDRP & URP material 属性重载
+V2支持每个实体重载各种HDRP和URP材质属性
+
+有一个内置的IComponentData组件库
+可以添加到实体以重载材质属性
+
+可以通过C#/Burst代码
+在运行时 setup and animate 材质
+
+HDRP支持重载的属性:
+AlphaCutoff
+AORemapMax
+AORemapMin
+BaseColor
+DetailAlbedoScale
+DetailNormalScale
+DetailSmoothnessScale
+DiffusionProfileHash
+EmissiveColor
+Metallic
+Smoothness
+SmoothnessRemapMax
+SmoothnessRemapMin
+SpecularColor
+Thickness
+ThicknessRemap
+UnlitColor (HDRP/Unlit)
+
+URP支持重载的属性:
+BaseColor
+BumpScale
+Cutoff
+EmissionColor
+Metallic
+OcclusionStrength
+Smoothness
+SpecColor
+
+如果想重载这里不支持的属性，
+可以通过自定义ShaderGraph材质重载
+勾选Hybrid Instanced
+
+创建自定义ShaderGraph属性，在IComponentData中暴露
+可以写C#/Burst代码控制自定义的shader的输入
+```
+
+```c#
+//重要！！！
+//每个自定义的ShaderGraph属性
+//创建匹配的IComponentData结构体
+//勾选Hybrid Instanced
+
+//如果不这样，V1数据未初始化，会闪烁
+//V2数据用0填充
+
+[MaterialProperty("_Color', MaterialPropertyFormat.Float4)]
+public struct MyOwnColor : IComponentData {
+    public float4 Value;
+}
+
+class AnimateMyOwnColorSystem : SystemBase {
+    protected override void OnUpdate() {
+        Entities.ForEach((ref MyOwnColor color, in MyAnimationTime t)=>{
+            color.Value = new float4(
+                math.cos(t.Value + 1.0f),
+                math.cos(t.Value + 2.0f),
+                math.cos(t.Value + 3.0f),
+                1.0f);
+        })
+        .Schedule();
     }
 }
 ```
