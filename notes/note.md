@@ -58,4 +58,9 @@ loop
 京城远泊无所有  
 伊人长待黄昏后  
 
+#### 多个Unity破解版共存
+```
+echo f | xcopy C:\ProgramData\Unity\Unity_lic2019.ulf C:\ProgramData\Unity\Unity_lic.ulf /y
+start "" "C:\Program Files\Unity\Editor\Unity.exe"
+````
 ## [<主页](https://www.wangdekui.com/)

@@ -3,14 +3,29 @@
 [指南第二部分](#index_second)
 [文档与博客](#index_documents)
 
+### 宏
+不用托管的IComponentData  
+UNITY_DISABLE_MANAGED_COMPONENTS  
+Hybrid Renderer V2 URP或者DHRP开启  
+ENABLE_HYBRID_RENDERER_V2  
+
 #### 包安装
+com.unity.entities  
 Entities  
-Mathematics  
-Hybrid Renderer  
 Jobs  
 Burst  
+
+com.unity.mathematics  
+Mathematics  
+
+com.unity.rendering.hybrid  
+Hybrid Renderer  
+
+com.unity.physics  
 Unity Physics  
-Havok PHysics for Unity  
+
+直接搜索  
+Havok Physics for Unity  
 ShaderGraph  
 
 # 指南
@@ -2435,7 +2450,7 @@ struct ActivateButtonJob : IJobForEachWithEntity<MouseClicked> {
 
 # 文档与博客
 
-#### Hybrid Renderer  
+### Hybrid Renderer  
 ```
 Unity 2020.1.0b3以上添加宏 ENABLE_HYBRID_RENDERER_V2
 如果entity拥有组件 LocalToWorld RenderMesh RenderBounds
@@ -2602,7 +2617,683 @@ class AnimateMyOwnColorSystem : SystemBase {
 }
 ```
 
-#### ECS深潜
+#### ShaderGraph
+
+图形化着色器，URP和HDRP自带  
+和builtin shader不兼容  
+
+### ECS
+
+#### 实体查询  
+```c#
+EntityQuery query = GetEntityQuery(typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>());
+
+var queryDescription = new EntityQueryDesc{
+    None = new ComponentType[] { typeof(Frozen) },
+    All = new ComponentType[] { typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>() }
+};
+EntityQuery query = GetEntityQuery(queryDescription);
+// 不要在EntityQueryDesc中包括可选组件，要处理可选组件，请使用ArchetypeChunk
+// 同一个块中的所有实体都具有相同的组件，所以检查一个可选组件
+// 一个块只需要一次，而不是每个实体查询一次
+```
+
+```c#
+// Options变量
+// IncludePrefab ：包括原型，该原型包含特殊的Prefab标签组件
+// IncludeDisabled ：包括原型，该原型包含特殊的Disabled标签组件
+// FilterWriteGroup ：考虑查询中任何组件的WriteGroup
+//     仅包含明确查询的那些实体，排除具有任何其他组件的实体
+//     虽然可以使用None，但是写入组无需更改其他系统使用的查询
+//     写入组这是以重拓展现有系统的机制，例如：如果C1和C2是在另一个系统中定义的，则可以将
+//     C3与C2放在同一个写入组中以更改C1的更新方式。对于添加C3组件的任何实体，系统都会更新C1，
+//     而原始系统不会。对于其他没有C3的实体，原始系统像以前一样更新C1
+// 解释：C1， C1+C3不一起更新，有不同的更新方法
+public struct C1 : IComponentData {}
+
+[WriteGroup(typeof(C1))]
+public struct C2 : IComponentData {}
+
+[WriteGroup(typeof(C1))]
+public struct C3 : IComponentData {}
+
+public class ECSSystem : SystemBase {
+    protected override void OnCreate() {
+        var queryDescription = new EntityQueryDesc{
+            All = new ComponentType[] { ComponentType.ReadWrite<C1>(),
+                                        ComponentType.ReadOnly<C3>() },
+            Options = EntityQueryOptions.FilterWriteGroup
+        };
+        var query = GetEntityQuery(queryDescription);
+    }
+
+    protected override void OnUpdate() {
+        return default;
+    }
+}
+```
+
+```c#
+//合并查询
+var desc1 = new EntityQueryDesc {
+    All = new ComponentType[] { typeof(RotationQuaternion) }
+};
+
+var desc2 = new EntityQueryDesc {
+    All = new ComponentType[] { typeof(RotationSpeed) }
+};
+
+EntityQuery query = 
+    GetEntityQuery(new EntityQueryDesc[] { desc1, desc2 });
+```
+
+```c#
+//缓存查询不考虑过滤器设置，如果在查询上设置过滤器，
+//下次GetEntityQuery将设置相同的过滤器
+//ResetFileter清除现有过滤器
+
+//Entities.ForEach
+//系统类之外，可以通过EntityManager创建查询
+EntityQuery query = entityManager.CreateEntityQuery(typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>());
+//在系统类内部，可以从系统获取查询
+//系统会缓存创建的所有查询并且返回缓存的实例
+public class RotationSpeedSys : SystemBase {
+    private EntityQuery query;
+    protected override void OnUpdate() {
+        float deltaTime = Time.DeltaTime;
+
+        Entities
+            .WithStoreEntityQueryInField(ref query)
+            .ForEach(
+            (ref RotationQuaternion rotation, in RotationSpeed speed)=> {
+                rotation.Value
+                    = math.mul(
+                        math.normalize(rotation.Value),
+                        quaternion.AxisAngle(math.up(),
+                            speed.RadiansPerSecond * deltaTime)
+                    );
+            })
+            .Schedule();
+    }
+}
+
+//IJobChunk
+//使用GetEntityQuery
+public class RotationSystem : SystemBase {
+    private EntityQuery query;
+    protected override void OnCreate() {
+        query = GetEntityQuery(typeof(RotationQuaternion),
+            ComponentType.ReadOnly<RotationSpeed>());
+    }
+    protected override void OnUpdate() {
+        return default;
+    }
+}
+```
+
+```c#
+// 共享组件过滤器：根据共享组件的特定值过滤实体集
+// 更改过滤器：根据特定组件类型的值是否已经更改过来过滤实体集
+// SetSharedComponentFilter传入ISharedComponent类型的结构
+// 最多添加两个不同的共享组件
+
+// 可以随时更改过滤器，然后重新ToComponentDataArray<T> 或者 ToEntityArray
+struct SharedGrouping : ISharedComponentData {
+    public int Group;
+}
+
+class ImpulseSystem : SystemBase {
+    EntityQuery query;
+    protected override void OnCreate() {
+        query = GetEntityQuery(typeof(Position),
+            typeof(Displacement),
+            typeof(SharedGrouping));
+    }
+    protected override void OnUpdate() {
+        // Only iterate over entities that have the SharedGrouping data set to 1
+        query.SetSharedComponentFilter(new SharedGrouping { Group = 1 });
+
+        var positions = query.ToComponentDataArray<Position>(Allocator.Temp);
+        var displacements = query.ToComponentDataArray<Displacement>(Allocator.Temp);
+
+        for (int i = 0; i < positions.Length; i++) {
+            positions[i] = new Position{ Value = positions[i].Value + displacements[i].Value };
+        }
+    }
+}
+```
+
+```c#
+//更换过滤器
+//如果仅在组件更改后才需要更新实体，
+//可以使用SetChangedVersionFilter函数将该组件添加到EntityQuery过滤器中
+
+//仅包含来自另一个系统已经写入到Translation组件的块的实体
+EntityQuery query;
+protected override void OnCreate() {
+    query = GetEntityQuery(typeof(LocalToWorld),
+        ComponentType.ReadOnly<Translation>());
+    query.SetChangedVersionFilter(typeof(Translation));
+}
+// 为了提高效率，更改过滤器适用于整个块，而不适用于单个实体。
+// 更改筛选器还仅检查系统是否已经运行了已声明对组件进行写访问的系统
+// 而不检查它是否实际上更改了任何数据
+// 换句话说，如果另一个具有写入该类型组件能力的Job访问该块
+// 则更改过滤器将包括该块中的所有实体。
+// 这就是为什么应该始终声明对不需要修改的组件的只读访问权限的原因
+```
+
+```c#
+//执行查询
+ToEntityArray 返回所选实体的数组
+ToComponentDataArray返回所选实体的类型的组件的数组
+CrateArchetypeChunkArray返回包含所选实体的所有块。
+因为查询操作的原型，共享组件值和更改筛选器对于块中的所有实体都是相同的，
+所以在返回的块中存储的实体集与ToEntityArray返回的实体集完全相同
+```
+
+#### 世界
+一个EntityManager  
+一系列Systems  
+可以创建一个模拟世界以及一个渲染或演示世界  
+
+默认情况下，一运行就会创建一个世界，如果有CompnentSystemBase  
+但是可以禁用  
+#UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP_RUNTIME_WORLD  
+#UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP_EDITOR_WORLD   
+#UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP  
+
+#### 组件
+
+```
+IComponentData 通用 和 块组件
+IBufferElementData 将 动态缓冲区与实体相关联
+ISharedComponentData 按原型中的值对实体进行分类或分组
+ISystemStateComponentData 将特定于系统的状态与实体相关联，并检测何时创建或销毁单个实体
+ISharedSystemStateCompnentData 共享状态和系统状态数据的组合
+Blob assets 从技术上讲，并不是组件，但是可以用Blob资产存储数据，
+    Blob资产可以由一个或多个组件使用BlobAssetReference进行引用，并且是不可变的
+    可用Blob资产在资产之间共享数据并访问C# Jobs 中的数据
+
+EntityManager将组件的独特组合组织到 Archtypes 中
+将具有相同原型的所有实体的组件一起存储在称为 chunk 的内存块中
+给定块中的实体均具有相同的组件原型
+
+共享组件和块组件是例外，ECS将它们存储在块外部
+对于chunk 一即是众，众即是一
+动态缓冲区可以存储在块之外
+```
+
+```
+通用组件 ComponentData
+接口 IComponentData
+
+非托管IComponentData
+    不得包含对托管对象的引用
+    修改数据：
+    var transform = group.transform[index];//Read
+    transform.heading = playerInput.move;//Modify
+    transform.position += deltaTime * playerInput.move * settings.playerMoveSpeed;
+    group.transform[index] = transform;//Write
+
+托管的 IComponentData
+    使用 class 而不是声明 struct
+    有助于将现有代码以零碎方式移植到ECS，与不适合的托管数据进行互操作 ISharedComponentData
+    或者为数据布局提供原型
+    如果不需要托管组件支持，设置宏 UNITY_DISABLE_MANAGED_COMPONENTS
+
+    不能用Burst
+    不能用在Job structs
+    不能用块内存
+    需要垃圾收集
+
+    应该限制托管组件的数量，尽可能使用blittable类型
+    必须实现IEquatable<T>接口并重载Object.GetHashCode()
+    必须默认可构造
+
+    必须在主线程射设置Component，使用EntityManager或EntityCommandBuffer
+    由于是引用类型，和ISharedComponentData不同，可以更改组件的值，无需修改块，不会创建同步点
+
+    尽管存储逻辑不是块，仍然受到EntityArchetype定义
+    创建新的托管组件仍会创建新的原型，并将实体移至新的Chunk
+
+有关示例，参阅 Packages/com.unity.entities/Unity.Entities/IComponentData.cs
+```
+
+```
+共享组件 SharedComponentData
+具有相同共享数据值的实体在同一个块中
+
+共享组件Rendering.RenderMesh定义了mesh,material,receiveShadows
+渲染时，一起处理所有具有相同字段值的3D对象，EntityManager将匹配的实体放置在内存中
+以便渲染系统可用有效地对其进行迭代
+
+！！！如果过度使用共享组件，则可能导致不佳的块利用率。
+因为，基于原型 和 每个共享组件字段 的 每个唯一值的内存块数量的组合扩展
+避免添加将实体分类到共享组件类别中不需要的任何字段
+
+如果从实体中添加或删除组件，或更改共享组件的值，EntityManager会将实体移动到其他块
+在必要时创建新块
+
+应该将IComponentData用于不同实体之间变化的数据，例如，存储世界位置，生命值，例子生存时间
+共享组件用于：DOTS软件包的Boids演示，许多实体从同一个Prefab实例化，RenderMesh都是相同的
+
+[System.Serializable]
+public struct RenderMesh : ISharedComponentData {
+    public Mesh mesh;
+    public Material material;
+    public ShadowCastingMode castShadows;
+    public bool receiveShadows;
+}
+
+！！！
+SharedComponentData是每个块存储一次，而不是每个实体都存储，实体上内存开销为0
+可用EntityQuery遍历具有相同类型的所有实体，还可以用EntityQuery.SetFilter()专门针对具有特定SharedComponentData值的实体进行迭代
+由于数据布局的原因，此迭代开销很低
+可用EntityManager.GetAllUniqueSharedComponents来检索SharedComponentData添加到任何活动实体的所有唯一性
+ECS自动引用计数SharedComponentData
+SharedComponentData很少改变，如果需要更改，需要使用 memcpy 将该实体的所有ComponentData复制到另一个块中
+
+有关此示例，参阅 Packages/com.unity.entities/Unity.Rendering.Hybrid/RenderMeshSystemV2.cs
+```
+
+```
+系统状态组件
+SystemStateComponentData
+跟踪系统内部的资源，根据需要创建和销毁这些资源，无需依赖各个回调
+
+SystemStateComponentData  SystemStateSharedComponentData
+类比ComponentData SharedComponentData
+但是SystemStateComponentData在销毁实体时，ECS不会删除
+
+DestroyEntity：
+当entity被销毁时，ECS通常
+1 查找引用特定实体id的所有组件
+2 删除那些组件
+3 回收实体ID以供重用
+
+但是，如果SystemStateComponentData存在，ECS不会回收ID，这使系统有机会清理与
+实体ID相关的任何资源或状态。ECS仅在SystemStateComponent删除entityID后才重新使用
+
+何时使用系统状态组件？
+系统可能需要保持状态，基于ComponentData，例如，可用分配资源
+系统还需要能将状态作为值进行管理，其他系统可能会进行状态更改，
+例如，当组件的值更改时，添加删除相关组件时
+
+没有回调，是ECS设计规划的重要组成部分
+SystemStateComponent预期的一般用法 将镜像用户组件，以提供内部状态
+例如：给定 FooComponent 是ComponentData 用户分配
+FooStateComponent 是SystemComponentData 系统分配
+
+检测何时添加组件？
+创建组件时，系统状态组件不存在。系统更新没有系统状态组件的实体，添加系统状态组件，和需要的内部状态
+
+检测何时删除组件？
+删除组件时，系统状态组件还在。系统更新只有系统状态组件的实体，删除系统状态组件，修复需要的内部状态
+
+检测实体何时被破坏？
+SystemStateComponentData在DestroyEntity删除最后一个组件之前，不会删除，并且不会回收实体。
+再删除SystemStateComponentData，删除实体
+
+struct FooStateComponent : IShareStateComponentData {
+}
+系统状态组件数据将在创建它的系统之外只读
+
+struct FooStateSharedComponent : ISystemStateSharedComponentData {
+    public int Value;
+}
+```
+
+```c#
+//例子，使用系统状态组件
+// m_newEntities选择具有通用用途但不具有系统状态组件的实体。该查询查找系统之前从未见过的新实体
+// 系统使用添加了系统状态组件的新实体查询来运行作业
+// m_activeEntities选择同时具有通用和系统状态组件的实体。在实际的应用程序中，其他系统可能是处理或销毁实体的系统。
+// m_destroyedEntities选择具有系统状态但不具有通用组件的实体。由于系统状态组件永远不会自己添加到实体，因此此系统
+// 或其他系统必须删除此查询选择的实体。系统重用销毁的实体查询以运行作业并从实体中删除系统状态组件，这使ECS代码可用
+// 回收实体标识符
+//例子在系统中不维护任何状态，系统状态组件的目的之一是跟踪和是需要分配或清除持久性资源
+using Unity.Entities;
+using Unity.Jobs;
+using Unity.Collections;
+
+public struct GeneralPurposeComponentA : IComponnetData {
+    public int LeftTime;
+}
+
+public struct StateComponentB : ISystemStateComponnet {
+    public int State;
+}
+
+public class StatefulSystem : SystemBase {
+    private EntityCommandBufferSystem ecbSource;
+
+    protected override void OnCreate() {
+        ecbSource = World.GetExistingSystem<EndSimulationEntityCommandBufferSystem>();
+
+        // Create some test entities
+        // This runs on the main thread, but it is still faster to use a command buffer
+        EntityCommandBuffer creationBuffer = new EntityCommandBuffer(Allocator.Temp);
+        EntityArchetype archetype = EntityManager.CreateArchetype(typeof(GeneralPurposeComponentA));
+        for (int i = 0; i < 10000; i++) {
+            Entity newEntity = creationBuffer.CreateEntity(archetype);
+            creationBuffer.SetComponent<GeneralPurposeComponentA> (
+                newEntity,
+                new GeneralPurposeComponentA() { Lifetime = i }
+            );
+        }
+        // Execute the command buffer
+        creationBuffer.Playback(EntityManager);
+    }
+
+    protected override void OnUpdate() {
+        EntityCommandBuffer.ParalleWriter parallelWriterECB = ecbSource.CreateCommandBuffer().AsParallelWriter();
+
+        // Entities with GeneralPurposeComponentA but not StateComponentB
+        Entities
+            .WithNone<StateComponentB>()
+            .ForEach(
+                (Entity entity, int entityInQueryIndex, in GeneralPurposeComponentA gpA)=>{
+                    // Add an ISystemStateComponentData instance
+                    parallelWriterECB.AddComponent<StateComponentB>(
+                        entityInQueryIndex,
+                        entity,
+                        new StateComponentB() { State = 1 }
+                    );
+                })
+            .ScheduleParallel();
+        ecbSource.AddJobHandleForProducer(this.Dependency);
+
+        // Create new command buffer
+        parallelWriterECB = ecbSource.CreateCommandBuffer().AsParallelWriter();
+
+        // Entities with both GeneralPurposeComponentA and StateComponentB
+        Entities
+            .WithAll<StateComponentB>()
+            .ForEach(
+                (Entity entity, int entityInQueryIndex, ref GaneralPurposeComponentA gpA)=>{
+                    // Process entity, in this case by decrementing the Lifetime count
+                    gpA.Lifetime--;
+
+                    // If out of time, destroy the entity
+                    if (gpA.Lifetime <= 0) {
+                        parallelWriterECB.DestroyEntity(entityInQueryIndex, entity);
+                    }
+                })
+            .ScheduleParallel();
+        ecbSource.AddJobHandleForProducer(this.Dependency);
+
+        // Create new command buffer
+        parallelwriterECB = ecbSource.CreateCommandBuffer().AsParallelWriter();
+
+        // Entities with StateComponentB but not GeneralPurposeComponentA
+        Entities
+            .WithAll<StateComponentB>()
+            .WithNone<GeneralPurposeComponentA>()
+            .ForEach(
+                (Entity entity, int entityInQueryIndex)=>{
+                    // This system is responsible for removing any ISystemStateComponentData instances it adds
+                    // Othewise, the entity is never truly destroyed.
+                    paralleWriterECB.RemoveComponent<StateComponentB>(entityInQueryIndex, entity);
+                })
+            .ScheduleParallel();
+        ecbSource.AddJobHandleForProducer(this.Dependency);
+    }
+
+    protected override void OnDestroy() {
+        // Implement OnDestroy to cleanup any resources allocated by this system.
+        // (This simplified example does not allocate any resources, so there is nothing to clean up.)
+    }
+}
+```
+
+```
+动态缓冲区组件
+BufferElementData
+使用动态缓冲区组件将类似数组的数据与实体相关联。动态缓冲区是ECS组件，可用容纳可变数量的元素，并根据需要自动调整大小。
+public struct IntBufferElement : IBufferElementData {
+    public int Value;
+}
+
+可用在实体查询中，或者在添加删除缓冲区组件时使用
+必须用不同函数访问缓冲区组件，并且这些函数提供了DynamicBuffer实例
+
+指定内部容量，使用 InternalBufferCapacity属性
+内部容量定义了动态缓冲区与实体的其他组件一起储存在ArchetypeChunk中的元素
+除了内部容量，缓冲区还会在当前块之外分配一个堆内存块，并将所有现有元素移走。
+ECS会自动管理该外部缓冲区内存，在删除缓冲区时释放内存。
+
+！！！如果缓冲区的数据不是动态的，则可用使用Blob asset代替动态缓冲区
+```
+
+```c#
+//声明缓冲区元素类型
+// internalBufferCapacity specifies how many elements a buffer can have before
+// the buffer storage is moved outside the chunk.
+[InternalBufferCapacity(8)]
+public struct MyBufferElement : IBufferElementData {
+    // Actual value each buffer element with store.
+    public int Value;
+
+    // The following implicit conversions are optional, but can be convenient.
+    public static implicit operator int(MyBufferElement e) {
+        return e.Value;
+    }
+
+    public static implicit operator MyBufferElement(int e) {
+        return new MyBufferElement{ Value = e };
+    }
+}
+
+//向实体添加缓冲区类型
+EntityManager.AddBuffer<MyBufferElement>(entity);
+//使用原型
+Entity e = EntityManager.CreateEntity(typeof(MyBufferElement));
+
+//使用[GenerateAuthoringComponent]属性
+// 为仅包含一个字段的简单IBufferElementData实现生成创作组件。
+// 设置后，可将ECS IBufferElementData添加到GameObject，以便于在
+// 编辑器设置缓冲区元素。
+
+//可以将这个直接添加奥编辑器中的GameObject
+[GenerateAuthoringComponent]
+public struct IntBufferElemetn : IBufferElementData {
+    public int Value;
+}
+//在后台，Unity生成一个IntBufferElementAuthoring的MonoBehaviour
+//该类公开一个List<int>，当GameObject转换为entity，该列表转换为
+// Dynamicbuffer<IntBufferElement>
+
+//!!!
+// 单个C#文件中只有一个组件可以具有 [GenerateAuthoringComponent]
+// 并且不能包含另一个MonoBehaviour
+// IBufferElementData对于包含多个字段的类型，无法自动生成
+// IBufferElementData无法为具有显示布局的类型自动生成
+```
+
+```c#
+// 使用EntityCommandBuffer
+// 将命令添加到entity的命令缓冲区时，可以添加或设置缓冲区组件
+// 使用Addbuffer为实体创建一个新的缓冲区，这将更改实体的原型。
+// 使用SetBuffer清楚现有，必然存在的缓冲区，并在其位置创建新的空缓冲区
+// 这两个函数都返回一个DynamicBuffer实例，可以用该实例填充新缓冲区
+
+using Unity.Entities;
+using Unity.Jobs;
+
+public class CreateEntitiesWithBuffers : SystemBase {
+    // A command buffer system executes command buffers in its own OnUpdate
+    public EntityCommandBufferSystem CommandBufferSystem;
+
+    protected override void OnCreate() {
+        CommandBufferSystem = World.DefaultGameObjectInjectionWorld.GetExistingSystem<EndSimulationEntityCommandBufferSystem>();
+    }
+
+    protected override void OnUpdate() {
+        // The command buffer to record commands,
+        // which are executed by the command buffer system later in the frame
+        EntityCommandBuffer.ParalleWriter commandBuffer = CommandBufferSystem.CreateCommandBuffer().AsParalleWriter();
+        // The DataToSpawn component tells us how many entities with buffers to create
+        Entities.ForEach((Entity spawnEntity, int entityInQueryIndex, in DataToSpawn data)=>{
+            for (int e = 0; e < data.EntityCount; e++) {
+                // Create a new entity for the command buffer
+                Entity newEntity = commandBuffer.CreateEntity(entityInQueryIndex);
+
+                // Create the dynamic buffer and add it to the new entity
+                DynamicBuffer<MyBufferElement> buffer = commandBuffer.AddBuffer<MyBufferElement>(entityInQueryIndex, newEntity);
+
+                // Reinterpret to plain int buffer
+                DynamicBuffer<int> intBuffer = buffer.Reinterpret<int>();
+
+                // Optionally, populate the dynamic buffer
+                for (int j = 0; j < data.ElementCount; j++) {
+                    intBuffer.Add(j);
+                }
+            }
+
+            // Destroy the DataToSpawn entity since it has down its job
+            commandBuffer.DestroyEntity(entityInQueryIndex, spawnEntity);
+        }).ScheduleParallel();
+
+        CommandBufferSystem.AddJobHandleForProducer(this.Dependency);
+    }
+}
+```
+
+```c#
+//访问缓冲区
+
+//EntityManager
+DynamicBuffer<MyBufferElemetn> dynamicBuffer = EntityManager.GetBuffer<MyBufferElement>(entity);
+
+//BufferFromEntity
+BufferFromEntity<MyBufferElement> lookup = GetBufferFromEntity<MyBufferElement>();
+var buffer = lookup[entity];
+buffer.Add(17);
+buffer.RemoveAt(0);
+
+//SystemBase
+public class DynamicBufferSystem : SystemBase {
+    protected override void OnUpdate() {
+        var sum = 0;
+
+        Entities.ForEach((DynamicBuffer<MyBufferElement> buffer)=>{
+            for (int i = 0; i < buffer.Length; i++) {
+                sum += buffer[i].Value;
+            }
+        }).Run();
+
+        Debug.Log("Sum of all buffers: " + sum);
+    }
+}
+// sum在实例中可以直接写入捕获的变量，因为使用Run
+// 如果安排在作业中运行，则要写入NativeArray
+```
+
+```c#
+//IJobChunk
+// 将缓冲区数据类型传递给作业，然后使用该数据类型获取BufferAccessor
+// 缓冲区访问器类似于数组，可提供对当前块中所有动态缓冲区的访问
+
+// IJobChunk还可以在每个块上并行运行，因此在示例中，首先将每个缓冲区的中间和存贮
+// 在NativeArray中，然后使用第二个作业来计算最终和。
+// 这种情况，中间数组为每一个块保存一个结果，而不是为每一个实体保存一个结果
+public class DynamicBufferJobSystem : SystemBase {
+    private EntityQuery query;
+
+    protected override void OnCreate() {
+        // Create a query to find all entities with a dynamic buffer
+        // containing MyBufferElement
+        EntityQueryDesc queryDescription = new EntityQueryDesc();
+        queryDescription.Add = new[] {ComponentType.ReadOnly<MyBufferElement>()};
+        query = GetEntityQuery(queryDescription);
+    }
+
+    public struct BuffersInChunks : IJobChunk {
+        // The data type and safety object
+        public BufferTypeHandle<MyBufferElement> BufferTypeHandle;
+
+        // An array to hold the output, intermediate sums
+        public NativeArray<int> sums;
+
+        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex) {
+            // A buffer accessor is a list of all the buffers in the chunk
+            BufferAccessor<MyBufferElement> buffers = chunk.GetBufferAccessor(BufferTypeHandle);
+
+            for (int c = 0; c < chunk.Count; c++) {
+                // An individual dynamic buffer for a specific entity
+                DynamicBuffer<MyBufferElement> buffer = buffers[c];
+                for (int i = 0; i < buffer.Length; i++) {
+                    sums[chunkIndex] += buffer[i].Value;
+                }
+            }
+        }
+    }
+
+    // Sums the intermediate results into the final total
+    public struct SumResult : IJob {
+        [DeallocateOnJobCompletion]
+        public NativeArray<int> sums;
+        public NativeArray<int> result;
+        public void Execute() {
+            for (int i = 0; i < sums.Length; i++) {
+                result[0] += sums[i];
+            }
+        }
+    }
+
+    protected override void OnUpdate() {
+        // Create a native array to hold the intermediate sums
+        int chunksInQuery = query.CalculateChunkCount();
+        NativeArray<int> intermediateSums = new NativeArray<int>(chunksInQuery, Allocator.TempJob);
+
+        // Shcedule the first job to add all the buffer elements
+        BuffersInChunks bufferJob = new BuffersInChunks();
+        bufferJob.BufferTypeHandle = GetBufferTypeHandle<MyBufferElement>();
+        bufferJob.sums = intermediateSums;
+        this.Dependency = bufferJob.ScheduleParallel(query, this.Dependency);
+
+        // Schedule the second job, which depends on the first
+        SumResult finalSumJob = new SumResult();
+        finalSumJob.sums = intermediateSums;
+        NativeArray<int> finalSum = new NativeArray<int>(1, Allocator.Temp);
+        finalSumJob.result = finalSum;
+        this.Dependency = finalSumJob.Schedule(this.Dependency);
+
+        this.CompleteDependency();
+        Debug.Log("Sum of all buffers: " + finalSum[0]);
+        finalSum.Dispose();
+    }
+}
+
+// 重新解释缓冲区
+// 安全，引用了原始数据
+// 注意：强制类型转换必须有相同长度 比如 uint float
+DynamicBuffer<int> intBuffer = EntityManager.GetBuffer<MyBufferElement>(entity).Reinterpret<int>();
+
+// 缓冲区引用无效
+// 每次结构更改都会使动态缓冲区的所有引用无效。
+// 结构变化通常会导致实体从一个小块移动到另一个小块
+// 小型动态缓冲区可以引用块中的内存，而不是主存中的内存
+// 结构更改后需要重新获取
+var entity1 = EntityManager.CrateEntity();
+var entity2 = EntityManager.CrateEntity();
+
+DynamicBuffer<MyBufferElement> buffer1 = EntityManager.AddBuffer<MyBufferElement>(entity1);
+// This line causes a structural change and invalidates
+// the previously acquired dynamic buffer
+DynamicBuffer<MyBufferElement> buffer2 = EntityManager.AddBuffer<MyBufferElement>(entity1);
+// This line will cause an error:
+buffer1.Add(17);
+```
+
+```
+Chunk component data
+块组件，增加不会影响原始块中的其余实体
+
+```
+
+### ECS深潜
 
 https://rams3s.github.io/blog/2019-01-09-ecs-deep-dive/  
 
