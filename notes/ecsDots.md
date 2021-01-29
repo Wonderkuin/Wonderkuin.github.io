@@ -2805,6 +2805,8 @@ CrateArchetypeChunkArray返回包含所选实体的所有块。
 
 #### 组件
 
+##### 简介
+
 ```
 IComponentData 通用 和 块组件
 IBufferElementData 将 动态缓冲区与实体相关联
@@ -2823,6 +2825,8 @@ EntityManager将组件的独特组合组织到 Archtypes 中
 对于chunk 一即是众，众即是一
 动态缓冲区可以存储在块之外
 ```
+
+##### 通用组件
 
 ```
 通用组件 ComponentData
@@ -2860,6 +2864,8 @@ EntityManager将组件的独特组合组织到 Archtypes 中
 有关示例，参阅 Packages/com.unity.entities/Unity.Entities/IComponentData.cs
 ```
 
+##### 共享组件
+
 ```
 共享组件 SharedComponentData
 具有相同共享数据值的实体在同一个块中
@@ -2896,6 +2902,8 @@ SharedComponentData很少改变，如果需要更改，需要使用 memcpy 将�
 
 有关此示例，参阅 Packages/com.unity.entities/Unity.Rendering.Hybrid/RenderMeshSystemV2.cs
 ```
+
+##### 系统状态组件
 
 ```
 系统状态组件
@@ -3046,6 +3054,8 @@ public class StatefulSystem : SystemBase {
     }
 }
 ```
+
+##### 动态缓冲区组件
 
 ```
 动态缓冲区组件
@@ -3287,10 +3297,1429 @@ DynamicBuffer<MyBufferElement> buffer2 = EntityManager.AddBuffer<MyBufferElement
 buffer1.Add(17);
 ```
 
+##### 块组件
+
 ```
 Chunk component data
-块组件，增加不会影响原始块中的其余实体
+与特定块关联
+每个块存储一个，块中实体原型都有
+因此如果实体中删除了块组件，实体会被移动到其他块
+如果将块组件添加到实体，实体也会被移动到其他块，因为原型被更改
 
+在实体中更改块组件的值，该块中所有实体的值都被改变
+如果更改实体原型，以便于将其移入具有相同类型的新组块，那么目标组块中的现有值不受影响
+！如果将实体移动到新创建的块，ECS会为该块创建一个新的块组件并分配其默认值
+
+块组件和通用组件的主要区别在于，使用不同的功能来添加，设置和删除
+```
+
+```
+//方法列表
+Declaration     IComponentData
+
+ArchetypeChunk methods
+Read GetChunkComponentData<T>(ArchetypeCHunkComponentType<T>)
+Check [HasChunkComponet<T>(ArchetypeChunkComponentType<T>)]
+Write SetChunkComponentData<T>(ArchetypeChunkComponentType<T>)
+
+EntityManager methods
+Create AddChunkComponentData<T>(Entity)
+Create AddChunkComponentData<T>(EntityQuery, T)
+Create AddComponents(Entity, ComponentTypes)
+Get type info [GetComponentTypeHandle]
+Read [GetChunkComponentData<T>(ArchetypeChunk)]
+Read GetChunkComponentData<T>(Entity)
+Chunk HasChunkComponent<T>(Entity)
+Delete RemoveChunkComponent<T>(Entity)
+Delete RemoveChunkComponentData<T>(EntityQuery)
+Write EntityManager.SetChunkComponentData<T>(ArchetypeChunk, T)
+```
+
+```c#
+//声明块组件
+public struct ChunkComponentA : IComponentData {
+    public float Value;
+}
+
+//创建一个块组件
+//要直接添加块组件，在目标块中使用一个entity，或使用选择一组目标块的EntityQuery
+//不能再job里面添加块组件，也不能使用EntityCommandBuffer添加
+
+//块组件可以作为EntityArchetype的一部分，或ECS用于创建entity的ComponentType列表的一部分
+//ECS为每个块创建块组件，并存储具有该原型的实体
+
+//通过这些方法使用ComponentType.ChunkComponent<T>或[ComponentType.ChunkComponentReadOnly<T>]
+EntityManager.AddChunkComponentData<ChunkComponentA>(entity);
+//使用此方法时，不能立即为块组件设置值
+
+//EntityQuery
+EntityQueryDesc ChunksWithoutComponentADesc = new EntityQueryDesc() {
+    None = new ComponentType[] { ComponentType.ChunkComponent<ChunkComponentA>() }
+};
+EntityQuery ChunksWithoutChunkComponentA = GetEntityQuery(ChunksWithoutComponentADesc);
+
+EntityManager.AddChunkComponentData<ChunkComponentA>(ChunksWithoutChunkComponentA,
+    new ChunkComponentA() { Value = 4});
+//使用此方法，可以为所有新块组件设置相同的初始值
+
+//EntityArchetype
+EntityArchetype ArchetypeWithChunkComponent = EntityManager.CreateArchetype(
+    ComponentType.ChunkComponent(typeof(ChunkComponentA)),
+    ComponentType.ReadWrite<GeneralPurposeComponentA>());
+Entity newEntity = EntityManager.CreateEntity(ArchetypeWithChunkComponent);
+//组件类型列表
+ComponentType[] comTypes = {ComponentType.ChunkComponent<ChunkComponentA>(),
+                            ComponentType.ReadOnly<GeneralPurposeComponentA>()}
+Entity entity = EntityManager.CreateEntity(compTypes);
+```
+
+```c#
+//读取块组件
+
+//使用ArchetypeChunk实例
+NativeArray<ArchetypeChunk> chunks = ChunksWithChunkComponentA.CreateArchetypeChunkArray(Allocator.TempJob);
+foreach (var chunk in chunks) {
+    var compValue = EntityManager.GetChunkComponentData<ChunkComponentA>(chunk);
+}
+chunks.Dispose();
+
+//通过实体
+if (EntityManager.HasChunkComponent<ChunkComponentA>(entity)) {
+    ChunkComponentA chunkComponentValue = EntityManager.GetChunkComponentData<ChunkComponentA>(entity);
+}
+```
+
+```c#
+//更新块组件
+//可以在引用块的基础上更新块组件
+//IJobChunk中，可以调用[ArchetypeChunk.SetChunkComponnetData]
+//在主线程上，可以使用EntityManager版本[EntityManager.SetChunkComponentData]
+//！！！注意：无法使用 SystemBase Entities.ForEach访问块组件，因为无权访问ArchetypeChunk对象或EntityManager
+
+//使用ArchetypeChunk实例
+//和读取应该时一样的
+
+//EntityManager
+EntityManager.SetChunkComponentData<ChunkComponentA>(chunk, new ChunkComponentA() { Value = 7 });
+
+//如果有一个块中的实体，而不是块本身，可以使用EntityManager获取包含该实体的块，再进行这一步操作
+
+//！！！注意：如果只想读取而不是写入，则在定义实体查询时 应该使用
+// ComponentType.ChunkComponentReadOnly
+// 以避免创建不必要的作业调度约束
+```
+
+```c#
+//删除块组件
+EntityManager.RemoveChunkComponent
+
+//可以删除 实体 的 块组件
+//实体会移动到其他块
+
+//可以删除 实体查询 选择的 块 中 所有块的组件
+```
+
+```c#
+//在查询中使用块组件
+
+//使用
+ComponentType.ChunkComponent<T>;
+[ComponentType.ChunkComponentReadOnly<T>]
+
+EntityQueryDesc ChunkWithChunkComponentADesc = new EntityQueryDesc() {
+    All = new ComponentType[] { ComponentType.ChunkComponent<ChunkComponentA>() }
+};
+```
+
+```c#
+//遍历块 设置块组件
+// 可以创建一个实体查询，实体查询选择正确的块，使用EntityQuery对象
+// 获取ArchetypeChunk实例的列表作为本机数组。ArchetypeChunk对象允许将新值写入块组件
+public class ChunkComponentExamples : SystemBase {
+    private EntityQuery ChunksWithChunkComponentA;
+    protected override void OnCreate() {
+        EntityQueryDesc ChunksWithComponentADesc = new EntityQueryDesc() {
+            All = new ComponentType[] {ComponentType.ChunkComponent<ChunkComponentA>()}
+        };
+
+        ChunksWithChunkComponentA = GetEntityQuery(ChunksWithComponentADesc);
+    }
+
+    [BurstCompile]
+    struct ChunkComponentCheckerJob : IJobChunk {
+        public ComponentTypeHandle<ChunkComponentA> ChunkComponentATypeHandle;
+        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex) {
+            var compValue = chunk.GetChunkComponentData(ChunkComponentATypeHandle);
+
+            var squared = compValue.Value * compValue.Value;
+            chunk.SetChunkComponentData(ChunkComponentATypeHandle, new ChunkComponentA() { Value = squared })
+        }
+    }
+
+    protected override void OnUpdate() {
+        var job = new ChunkComponentCheckerJob() {
+            ChunkComponentATypeHandle = GetComponentTypeHandle<ChunkComponentA>()
+        };
+        this.Dependency = job.Schedule(ChunksWithChunkComponentA, this.Dependency);
+    }
+}
+
+//如果需要读取块中的组件以确定块组件的正确值，应该使用IJobEntityBatch
+// 以下代码:包含 具有LocalToWorld组件的实体  的所有块  计算出轴对齐的边界框
+public struct ChunkAABB : IComponentData {
+    public AABB Value;
+}
+
+[UpdateInGroup(typeof(PresentationSystemGroup))]
+[UpdateBefore(typeof(UpdateAABBSystem))]
+public class AddAABBSystem : Systembase {
+    EntityQuery queryWithoutChunkComponent;
+    protected override void OnCreate() {
+        queryWithoutChunkComponent = GetEntityQuery(new EntityQueryDesc() {
+            All = new ComponentType[] { ComponentType.ReadOnly<LocalToWorld>() },
+            None = new ComponentType[] { ComponentType.ChunkComponent<ChunkAABB>() }
+        });
+    }
+
+    protected override void OnUpdate() {
+        // This is a structual change and a sync point
+        EntityManager.AddChunkComponentData<ChunkAABB>(queryWithoutChunkComponent, new ChunkAABB());
+    }
+}
+
+[UpdateInGroup(typeof(PresentationSystemGroup))]
+public class UpdateAABBSystem : SystemBase {
+    EntityQuery queryWithChunkComponent;
+    protected override void OnCreate() {
+        queryWithChunkComponent = GetEntityQuery(new EntityQueryDesc() {
+            All = new ComponentType[] { ComponentType.ReadOnly<LocalToWorld>(),
+                                        ComponentTYpe.ChunkComponent<ChunkAABB>() }
+        });
+    }
+
+    [BurstCompile]
+    struct AABBJob : IJobChunk {
+        [ReadOnly] public ComponentTypeHandle<LocalToWorld> LocalToWorldTypeHandleInfo;
+        public ComponentTypeHandle<ChunkAABB> ChunkAabbTypeHandleInfo;
+        public uint L2WChangeVersion;
+        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex) {
+            bool chunkHasChanges = chunk.DidChange(LocalToWorldTypeHandleInfo, L2WChangeVersion);
+
+            if (!chunkHasChanges)
+                reutrn; //early out if the chunk transforms haven't changed
+
+            NativeArray<LocalToWorld> transforms = chunk.GetNativeArray<LocalToWorld>(LocalToWorldTypeHandleInfo);
+            UnityEngine.Bounds bounds = new UnityEngine.Bounds();
+            bounds.center = transforms[0].Position;
+            for (int i = 1; i < transforms.Length; i++)
+                bounds.Encapsulate(transforms[i].Position);
+            chunk.SetChunkComponentData(ChunkAabbTypeHandleInfo, new ChunkAABB { Value = bounds.ToAABB() });
+        }
+    }
+
+    protected override void OnUpdate() {
+        var job = new AABBJob() {
+            LocalToWorldTypeHandleInfo = GetComponentTypeHandle<LocalToWorld>(true),
+            ChunkAabbTypeHandleInfo = GetComponentTypeHandle<ChunkAABB>(false),
+            L2WChangeVersion = this.LastSystemVersion
+        };
+        this.Dependency = job.Schedule(queryWithChunkComponent, this.Dependency);
+    }
+}
+```
+
+#### 系统
+
+##### 简介
+
+```
+实例化系统
+使用 <系统属性> <父组> <该系统在父组中的顺序> 确定顺序
+如果没有指定父项，则Unity将添加到默认世界的Simulation系统组中
+可以使用属性禁用自动创建
+
+更新循环由 父ComponentSystemGroup 驱动
+ComponentSystemGroup是一种特殊的系统，负责更新子系统
+组可以嵌套
+系统从运行的世界中获取 时间 数据
+时间由 UpdateWorldTimeSystem  更新
+```
+
+```
+系统类型
+实现游戏行为 数据转换 ：SystemBase
+其他系统有特殊用途。
+通常使用 EntityCommandBufferSystem  ComponentSystemGroup 类的 现有实例
+
+SystemBase  创建系统要实现的基类
+
+EntityCommandBufferSystem 为其他系统提供 EntityCommandBuffer 实例
+每个默认系统组在其子系统列表的开头和结尾都维护一个  实体命令缓冲区系统
+这样可以对结构更改进行分组，以使它们在框架中产生更少的  同步点
+
+ComponentSystemGroup 为其他系统提供嵌套的组织和更新顺序
+默认情况下，UnityECS创建多个组件系统组
+
+GameObjectConversionSystem 将游戏的基于GameObject的编辑器内表示
+转换为高效的基于实体的运行时表示 游戏转换系统在Unity编辑器中运行
+```
+
+##### 建立系统
+
+```
+        SystemBase
+        OnCreate 可选               创建系统时调用
+        OnStartRunning() <--        在第一个OnUpdate之前 每次系统恢复运行时 调用
+循环    OnUpdate 必选       |        只要有工作 ShouldRunSystem控制 且 Enabled=true
+        OnStopRunning()   --        系统停止更新 Enabled=false 或 找不到查询的实体
+        OnDestroy()                 销毁
+
+系统组触发子系统的OnUpdate，系统组Enabled=false，也会更改子系统状态
+子系统也可以独立于 父群组 改变装，详细请看 系统更新顺序
+
+所有系统事件都在主线程上运行
+理想情况下，OnUpdate函数可以调度 jobs 执行大部分工作
+要从系统安排 job：
+Entities.ForEach  迭代ECS组件数据 最简单的方法
+Job.WithCode 将lambda函数作为单个后台Job执行
+IJobChunk 低级 的机制，逐块迭代ECS组件数据
+C# Jobs System 创建 Schedule 普通的 C# jobs
+```
+
+```c#
+// Entities.ForEach
+public struct Position : IComponentData {
+    public float3 Value;
+}
+public struct Velocity : IComponentData {
+    public float3 Value;
+}
+
+public class ECSSystem : SystemBase {
+    protected override void OnUpdate() {
+        // Local variable captured in ForEach
+        float dT = Time.DeltaTime;
+
+        Entities
+            .WithName("Update_Displacement")
+            .ForEach(
+                (ref Position position, in Velocity velocity)=>
+                {
+                    position = new Position()
+                    {
+                        Value = position.value + velocity.Value * dT
+                    };
+                }
+            )
+            .ScheduleParallel();
+    }
+}
+```
+
+##### 使用实体
+
+```c#
+// Entities.ForEach
+// 传入一个 lambda 函数， 使用 Schedule 和 ScheduleParallel 安排 job
+// 或者 Run 立即在主线程执行
+class ApplyVelocitySystem : SystemBase {
+    protected override void OnUpdate() {
+        Entities
+            .ForEach(
+                (ref Translation translation, in Velocity velocity) =>
+                {
+                    translation.Value += velocity.Value;
+                }
+            )
+            .Schedule();
+    }
+}
+//!!! 注意 ref 和 in
+// ref 是打算写的数据
+// in 是只读的
+// 将组件标记为只读可以帮助job 高效执行
+
+// 使用 WithAll WithAny WithNone 细化查询
+// 示例： 选择具有以下成分的实体 Destination Source LocalToWorld
+// 有至少一个就行
+// 但是不能有 LocalToParent
+Entities.WithAll<LocalToWorld>()
+    .WithAny<Rotation, Translation, Scale>()
+    .WithNone<LocalToParent>()
+    .ForEach(
+        (ref Destination outputData, in Source inputData)=>
+        {
+            // 只能在 lambda函数 内部访问 Destination 和 Source 组件
+        }
+    )
+    .Schedule();
+
+//访问EntityQuery对象
+// 如果要访问 Entities.ForEach创建的 EntityQuery对象
+// 使用 [WithStoreEntityQueryInField (ref query)] 注意 ref
+// EntityQuery是在 OnCreate 中创建的， 此方法提供该查询的副本，可以随时使用
+
+// 示例： 如何访问Entities.ForEach 隐式构造的 EntityQuery对象
+// 使用 EntityQuery对象调用 CalculateEntityCount 方法， 用这个计数创建NativeArray
+private EntityQuery query;
+protected override void OnUpdate() {
+    int dataCount = query.CalculateEntityCount();
+    NativeArray<float> dataSquared = new NativeArray<float>(dataCount, Allocator.Temp);
+
+    Entities
+        .WithStoreEntityQueryInField(ref query)
+        .ForEach(
+            (int entityInQueryIndex, in Data data)=>
+            {
+                dataSquared[entityInQueryIndex] = data.Value * data.Value;
+            }
+        )
+        .ScheduleParallel();
+
+    Job
+        .WithCode(
+            ()=>
+            {
+                // Use dataSquared array
+                var v = dataSquared[dataSequred.Length - 1];
+            }
+        )
+        .WithDisposeOnCompletion(dataSquared)
+        .Schedule();
+}
+```
+
+```
+可选组件
+无法创建指定可选组件的查询  使用  WithAny<T, U>
+无法在 lambda 中 访问这些组件
+如果需要读取或写入 可选组件
+可以将 Entities.ForEach 拆分成多个
+每个可选组件用一个
+
+例如：
+如果有两个可选组件
+需要三个ForEach
+第一个包含A
+第二个包含B
+第三个包含AB
+
+另一种是选择使用 IJobChunk 逐块进行迭代
+```
+
+```c#
+// 变更筛选
+// SystemBas 上次运行后 该组件 另一个实体 发生更改时 处理这个实体
+// 可以用 WithChangeFilter<T> 启用 筛选
+// lambda函数使用的参数需要在参数列表中，或者必须时WithAll<T>语句的一部分
+Entities
+    .WithChangeFilter<Source>()
+    .ForEach(
+        (ref Destination outputData, in Source inputData)=>
+        {
+            // Do work
+        }
+    )
+    .ScheduleParallel();
+//!!! 最多支持两种类型的更改过滤
+// 更改过滤应用于块级别
+// 如果有任何代码通过 写访问 访问块中的某个组件
+// 则该块中该组件的类型被标记为已经更改，即使并未更改
+// 因此： 筛选对写访问 无效
+```
+
+```c#
+//共享组件过滤
+// 具有共享组件的实体
+// WithSharedComponentFilter
+
+//示例 选择按同类组 ISharedComponentData分组的实体
+// lambda函数根据实体的同类群组设置 DisplayColor IComponentData
+public class ColorCycleJob : SystemBase {
+    protected override void OnUpdate() {
+        List<Cohort> cohorts = new List<Cohort>();
+        EntityManager.GetAllUniqueSharedComponentData<Cohort>(cohorts);
+        foreach (Cohort cohort in cohorts) {
+            DisplayColor newColor = ColorTable.GetNextColor(cohort.Value);
+            Entities
+                .WithSharedComponentFilter(cohort)
+                .ForEach(
+                    (ref DisplayColor color)=>
+                    {
+                        color = newColor;
+                    }
+                )
+                .ScheduleParallel();
+        }
+    }
+}
+//
+```
+
+```c#
+//定义ForEach函数
+//ForEach可以声明参数
+
+//典型的lambda
+Entities.ForEach(
+    (Entity entity, int entityInQueryIndex, ref Translation translation, in Movement move)=>{}
+)
+// 默认情况下，最多可以将 8 个参数传递给lambda
+// 如果需要更多参数，可以 自定义委托
+// 使用标准委托时，需要按顺序对参数分组
+// 1 值传递 2 ref 3 in
+//所有组件都应该用 ref in参数修饰，否则，struct就不是引用
+
+
+// 自定义 delegates
+// 三个特殊 命名参数 
+//    entity 当前实体的Entity实例，参数名随意，类型是Entity就行
+//    entityInQueryIndex 该实体在查询选择的所有实体列表的索引
+//          使用 NativeArray可以用来索引
+//          并非的EntityCommandBuffer可以sortKey后使用索引
+//    nativeThreadIndex 执行lambda函数 当前迭代的线程的唯一索引。
+//          使用Run 执行lambda函数时， nativeThreadIndex始终是0
+//          不要native
+// 不可以使用 ref  in
+struct class BringYourOwnDelegate {
+    // Declare the delegate that takes 12 parameters. T0 is used for the Entity argument
+    [Unity.Entities.CodeGenerateJobForEach.EntitiesForEachCompatible]
+    public delegate void CustomForEachDelegate<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>
+    (T0 t0, in T1 t1,in T2 t2,in T3 t3,in T4 t4,in T5 t5,
+    in T6 t6,in T7 t7,in T8 t8,in T9 t9,in T10 t10,in T11 t11);
+
+    // Declare the function overload
+    public static TDescription ForEach<TDescription, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>
+    (this TDescription description, CustomForEachDelegate<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> codeToRun)
+        where TDescription : struct, Unity.Entities.CodeGeneratedJobForEach.ISupportForEachWithUniversalDelegate=>
+        LambdaForEachDescriptionConstructionMethods.ThrowCodeGenException<TDescription>();
+}
+
+// A system that uses the custom delegate and overload
+public class MayParamsSystem : SystemBase {
+    protected override void OnUpdate() {
+        Entities.ForEach(
+            (
+                Entity entity0, 
+                in Data1 d1,
+                in Data2 d2,
+                in Data3 d3,
+                in Data4 d4,
+                in Data5 d5,
+                in Data6 d6,
+                in Data7 d7,
+                in Data8 d8,
+                in Data9 d9,
+                in Data10 d10,
+                in Data11 d11,
+            )
+            .Run();
+        )
+    }
+}
+//!! 为 ForEach lambda函数选择了默认的 8 个参数限制，
+//因为声明太多的委托和重载会对IDE性能产生负面影响
+// ref in value 和 参数数量的每种组合都需要唯一的委托类型和ForEach重载
+```
+
+```c#
+//组件参数
+// 要访问与实体关联的组件，必须将该组件的参数传递给lambda函数
+// 编译器会将传递给函数的所有组件作为必须组件添加到实体查询中
+
+// 要更新组件的值，必须用ref
+// 提高效率 只读的要用 in
+Entities.ForEach(
+    (ref Destination outputData, in Source inputData)=>
+    {
+        outputData.Value = inputData.Value;
+    }
+)
+.ScheduleParallel();
+//!! 不能将块组件传递给 ForEach lambda函数
+
+// 动态缓冲区 要用 DynamicBuffer<T>
+public class BufferSum : SystemBase {
+    private EntityQuery query;
+
+    //Schedules the two jobs with a dependency between them
+    protected override void OnUpdate() {
+        // The query variable can be accessed here because we are
+        // usign WithStoreEntityQueryInField(query) in the entities.ForEach below
+        int entitiesInQuery = query.CalculateEntityCount();
+
+        // Create a native array to hold the intermediate sums
+        // (one element per entity)
+        NativeArray<int> intermediateSums = new NativeArray<int>(entitiesInQuery, Allocator.TempJob);
+
+        //Schedule the first job to add all the buffer elements
+        Entities
+            .ForEach
+            (
+                (int entityInQueryIndex, in DynamicBuffer<IntBufferData> buffer)=>
+                {
+                    for (int i = 0; i < buffer.Length; i++)
+                    {
+                        intermediateSums[entityInQueryIndex] += buffer[i].Value;
+                    }
+                }
+            )
+            .WithStoreEntityQueryInField(ref query)
+            .WithName("IntermediateSums")
+            .ScheduleParallel();// Execute in parallel for each chunk of entities
+
+        // Shcedule the second job, which depends on the first
+        Job
+            .WithCode(
+                ()=>
+                {
+                    int result = 0;
+                    for (int i =0; i < intermediateSums.Length; i++)
+                    {
+                        result += intermediateSums[i];
+                    }
+                    //Not burst compatible:
+                    Debug.Log("Final Sum is " + result);
+                }
+            )
+            .WithDisposeOnCompletion(intermediateSums)
+            .WithoutBurst()
+            .WithName("FinalSum")
+            .Shcedule();// Execute on a single, background thread
+    }
+}
+```
+
+```
+捕获变量
+捕获 Entity.ForEach lambda函数的局部变量
+使用 job 执行函数，Schedule而不是Run时，捕获的变量有限制
+--只能捕获 Native containers 本地容器 和 blittable types 可以直接复制的类型
+--job只能用 Native containers捕获的变量 单个值也要用Native数组传递
+
+Native如果是只读的 用 WithReadOnly(variable)传递
+可以指定的属性包括 NativeDisableParallelForRestriction等
+c# 中作为函数提供，因为变量不支持attibutes
+
+在ForEach后，Native容器 需要卸载
+WithDisposeOnCompletion(variable)
+
+Run可以写入Native以外的变量，但是尽可能还是用blittable类型，用Burst编译
+```
+
+```
+支持的功能
+                             RUN      Schedule      ScheduleParallel
+捕获local值类型                x          x                 x
+捕获local引用类型               x非burst
+写入捕获的变量                  x
+使用System的字段               x非burst
+引用类型的方法                  x非burst
+共享组件                       x非burst
+托管组件                       x非burst
+结构变化                       x非burst和WithStructuralChanges
+SystemBase.GetComponent       x          x              x
+SystemBase.SetComponent       x          x
+GetComponentDataFromEntity    x          x              x仅ReadOnly
+HasComponent                  x          x              x
+WithDisposeOnComponent        x          x              x
+
+ForEach使用专门的中间语言IL处理翻译，有些功能不支持
+Dynamic code in .With invocations
+ref 的 SharedComponent参数
+嵌套 Entities.ForEach 的lambda函数
+Entities.ForEach 被标记[ExecuteAlways] 正在修复中
+使用存储在变量，字段，方法中的delegate进行调用
+具有lambda的SetComponet
+具有可写lambda参数的GetComponent
+Lambdas中的通用参数
+在具有通用参数的系统中
+```
+
+```
+Dependency
+依赖关系
+默认情况下，Entities.ForEach和 [Job.WithCode]创建的
+每个作业按它们在OnUpdate函数中出现的顺序添加Dependency作业句柄中
+
+还可以通过将[JobHandle]传递给函数来手动管理作业依赖关系，然后返回结果依赖关系
+```
+
+##### 使用 Job.WithCode
+
+```c#
+// SystemBase 类 提供 Job.WithCode
+// 可以在主线程运行，仍然可以用Burst
+
+// 示例： 用随机数填充本机数组，用另一个job将数字相加
+public class RandomSumJob : SystemBase {
+    private uint seed = 1;
+    protected override void OnUpdate() {
+        Random randomGen = new Random(seed++);
+        NativeArray<float> randomNumbers = new NativeArray<float>(500, Allocator.TempJob);
+
+        Job.WithCode(()=>
+            {
+                for (int i = 0; i < randomNumbers.Length; i++)
+                {
+                    randomNumbers[i] = randomGen.NextFloat();
+                }
+            }
+        ).Schedule();
+
+        // To get data out of a job, you must use a NativeArray
+        // even if there is only one value
+        NativeArray<float> result = new NativeArray<float>(1, Allocator.TempJob);
+
+        Job.WithCode(()=>
+            {
+                for (int i = 0; i < randomNumbers.Length; i++)
+                {
+                    result[0] += randomNumbers[i];
+                }
+            }
+        ).Schedule();
+
+        // This completes the scheduled jobs to get the result immediately, but for
+        // better efficiency you should schedule jobs early in the frame with one
+        // system and get the results late in the frame with a different system.
+        this.CompleteDependency();
+        UnityEngine.Debug.Log("The sum of " + randomNumbers.Length + " numbers is " + result[0]);
+
+        randomNumbers.Dispose();
+        result.Dispose();
+    }
+}
+// !!! 要运行并行job，需要实现 IJobFor，可以使用系统OnUpdate函数中的ScheduleParallel进行 Schedule调度
+```
+
+```
+变量
+Variables
+不能将参数传递给Job.WithCode lambda函数或返回值
+可以在OnUpdate中捕获局部变量
+使用C# Jobs System，使用Schedule
+-- 捕获的变量必须是 NativeArray或者其他Native容器或blittable类型
+-- 要返回数据，将返回值写进NativeArray，使用 Run
+
+WithReadOnly用来指定 不更新容器
+WithDisposeOnCompletion在作业后，自动处理容器
+这一点 Job.WithCode Entities.ForEach 都是一样的
+```
+
+```
+函数
+Schedule 将函数作为单个非并行作业执行，调度作业在后台线程上运行代码，因此可以很好的利用cpu
+Run 立即在主线程执行函数。大多数情况下，可以用Burst，即使在主线程上，也很快
+
+调用Run 自动完成 Job.WithCode构造的所有依赖。如果没有将JobHandle对象显示传递给系统
+假定当前的 Dependency属性表示函数的依赖关系。 如果函数没有依赖关系，传入新的JobHandle
+```
+
+```
+依赖关系
+默认按照OnUpdate的顺序添加到 Dependency作业句柄中。
+还可以通过将JobHandle传递给函数来手动管理作业依赖，然后将结果依赖返回
+```
+
+
+##### 使用 Entity Batch jobs
+
+```
+在System中实现 IJobEntiyBatch 或者 IJobEntityBatchWithIndex
+在OnUpdate中，调度IJobEntityBatch作业时，系统会使用传递给调度函数的EntityQuery来表示Chunk
+job为这些块中的每一批实体调用一次函数，默认情况，批处理大小是完整的Chunk
+但是可以在计划作业时，将批处理大小设置为Chunk的一部分
+无论批次大小如何，给定批次中的实体始终存储在同一个Chunk中
+可以逐个entity遍历每个批次内的数据
+
+IJobEntityBatchWithIndex，提供批次内所有实体的Index
+IJobEntityBatch效率更好，因为不需要提供Index
+
+要实施批处理作业：
+1 使用EntityQuery查询数据，标识要处理的实体
+2 使用IJobEntityBatch或IJobEntityBatchWithIndex定义job结构
+3 声明访问的数据。在job结构上，包括ComponentTypeHandle对象的字段，
+    这些字段标识作业必须直接访问的组件类型。指定 ref in
+    还可以表示要查找的数据，这些数据用于查找不属于查询的实体，用于非实体数据的字段
+4 编写作业结构的Execute函数，以转换数据。获取作业读取或写入的组件的NativeArray
+    遍历当前批处理，执行所需的job
+5 在System的OnUpdate中调度job，将标识 要处理的实体 的EntityQuery传递给调度函数
+
+注意：
+与Entities.ForEach相比，IJobEntityBatch或者IJobEntityBatchWithindex进行迭代更加复杂
+    需要更多代码设置，并且仅仅应该在必要时，或者更有效率时使用
+IJobEntityBatch取代IJobChunk 主要区别在于，可以安排IJobEntityBatch遍历比完整的块更小的实体批次
+如果每个批次中的实体都需要作业范围的索引，可以使用IJobEntityBatchWithIndex
+```
+
+```
+使用EntityQuery查询数据
+一个EntityQuery定义了一组部件类型的一个EntityArchetype必须包含System处理其相关联的组件和实体
+原型可以具有其他组件，但是必须至少具有Query定义的组件。还可以排除包含而特定类型组件的原型。
+
+注意：
+不要再EntityQuery中包含完全可选的组件。要处理可选组件，使用IJobEntityBatch.Execute的
+ArchetypeChunk.Has方法 来确定当前的ArchetypeChunk是否具有可选组件
+同一批次中的所有实体都具有相同的组件，每个批次 只需要检查一次，而不是每个实体一次
+```
+
+```c#
+// 定义 Job Struct
+// job 要有 Execute函数 和声明Execute函数使用的数据的字段
+public struct UpdateTranslationFromVelocityJob : IJobEntityBatch {
+    public ComponentTypeHandle<VelocityVector> velocityTypeHandle;
+    public ComponentTypeHandle<Translation> translationTypeHandle;
+    public float DeltaTime;
+
+    [BurstCompile]
+    public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+    {
+        NativeArray<VelocityVector> velocityVectors = 
+            batchInChunk.GetNativeArray(velocityTypeHandle);
+        NativeArray<Translation> translations = 
+            batchInChunk.GetNativeArray(translationTypeHandle);
+
+        for (int i = 0; i < batchInChunk.Count; i++)
+        {
+            float3 translation = translations[i].Value;
+            float3 velocity = velocityVectors[i].Value;
+            float3 newTranslation = translation + velocity * DeltaTime;
+
+            translations[i] = new Translation() { Value = newTranslation };
+        }
+    }
+}
+```
+
+```
+IJobEntityBatch IJobEntityBatchWithIndex
+唯一区别：
+indexOfFirstEntityInQuery传递这个参数，EntityQuery查询的所有列表中当前批次中第一个实体的索引
+
+每个实体需要单独的索引时，用IJobEntityBatchWithIndex
+例如：
+为每个实体计算唯一的结果，则可以使用此索引将每个结果写入本机数组的其他元素。
+
+如果不需要indexOfFirstEntityInQuery，使用IJobEntityBatch，避免计算索引值的开销
+
+注意：
+将命令添加到[EntityCommandBuffer.ParallelWriter]时，可以将该 batchIndex 参数用作sortKey命令缓冲区的参数
+无需仅使用IJobEntityBatchWithIndex来获取每个实体的唯一排序键
+batchIndex两种作业类型均可用的参数可用于此目的
+```
+
+```
+声明 job 访问的数据
+job struct中的字段声明可以用于Execute函数的数据。
+1 ComponentTypeHandle字段 组件句柄字段 Execute函数可以访问存储在当前块中的实体组件和缓冲区
+2 ComponentDataFromEntity BufferFromEntity 来自实体的数据 Execute函数可以查找任何实体的数据，无论存在何处
+    这种类型的随机访问时访问数据最 低效 的方法，应该仅在必要时使用
+3 其他字段 可以根据需要为结构声明其他字段 可以在每次计划job作业时设置此类字段的值。
+4 输出字段 除了更新作业中的 可写实体组件 和 缓冲区 ，还可以写入为作业结构声明的Native容器
+```
+
+```c#
+// 访问实体组件和缓冲区数据
+// 首先 必须在 job struct上 定义 ComponentTypeHandle
+public ComponentTypeHandle<Translation> translationTypeHandle;
+// 接下来 使用Execute方法内的handle 访问包含该类型组件数据的数组 NativeArray
+NativeArray<Translation> translations = batchInChunk.GetNativeArray(translationTypeHandle);
+// 最后，在安排job时，在 OnUpdate中，可以使用 ComponentSystemBase.GetComponentTypeHandle
+// 将值分配给类型句柄字段
+// this is SystemBase subclass
+updateFormVelocityJob.translationTypeHandle
+    = this.GetComponentTypeHandle<Translation>(false);
+// 每次计划作业时，始终设置作业的句柄字段，不要缓存
+
+// 索引相同
+// 批处理中每个组件数据数组都经过对齐，以使给定索引对应于所有数组中的同一个实体
+
+// 可以使用 ComponentTypeHandle遍历来访问不包含在 EntityQuery中的组件
+// 尝试访问之前，必须检查 batch 包含这个组件 Has功能
+
+// ComponentTypeHandle字段是 读写 job 数据时，防止竞争条件ECS工作安全系统的一部分
+// 始终设置 GetComponentTypeHandle 函数的 isReadOnly 参数， 准确反映访问权限 就是后面的 true false
+```
+
+```
+查找其他实体的数据
+
+通过EntityQuery和IJobEntityBatch作业 或者 Entities.ForEach访问数据几乎总时最有效的方法
+但是很多情况下需要查找数据，例如， 当一个实体依赖于另一个实体时
+执行查找，需要通过job struct将不同类型的句柄传递给job
+
+ComponentDataFromEntity-访问具有该组件类型的任何实体的组件
+BufferFromEntity-访问具有该缓冲区类型的任何实体类型的缓冲区
+
+除了效率较低的问题，还有可能创建竞争条件
+```
+
+```
+访问其他数据
+
+例如：要更新移动的对象，则很可能需要传递自上次更新以来经过的时间。
+为此，可以定义一个名为DeltaTime的字段，在OnUpdate中设置值， 在job的Execute中使用该值
+在每个框架上，都需要DeltaTime 在新框架job安排作业之前，需要设置新的值
+```
+
+```c#
+// Execute
+
+// IJobEntityBatch.Execute方法
+void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+
+// IJobEntityBatchWithIndex.Execute
+void Execute(ArchetypeChunk batchInChunk, int batchIndex, int indexOfFirstEntityInQuery)
+
+// batchInChunk
+// 提供ArchetypeChunk的实例，该实例包含此作业的迭代的实体和组件
+// 因为块只能包含一个原型，所以块中的所有实体都具有相同的组件集
+// 默认情况，该对象的所有实体都在一个块中
+// 如果ShceduleParallel调度作业，则可以指定批处理仅包含块中实体数量的一小部分
+
+// 使用 batchInChunk 参数获取访问组件数据所需的NativeArray实例
+// 还必须声明一个具有相应组件类型handle的字段，并在计划作业时设置该字段
+
+
+// batchIndex
+// 为当前作业创建的所有批次的列表中，当前批次的索引
+// 作业中的批次不一定按索引顺序处理
+
+// 有一个NativeArray，每个批次要向里面写入一个元素，要在其中写入Execute中
+// 计算得到的值  这时，可用batchIndex作为容器中的数组索引
+
+
+// indexOfFirstEntityInQuery
+// IJobEntityBatchWithIndex才有这个参数
+// 如果将 查询选择的实体 描述为单个列表
+// 这个遍历僵尸当前批次中第一个实体在该列表的索引
+// 作业中的批次不一定按照索引顺序处理
+```
+
+```c#
+//可选组件
+// 如果有Any过滤器，或者查询中根本没有出现完全可选的组件，则可以使用ArchetypeChunk.Has
+
+// If entity has Rotation and LocalToWorld components,
+// slerp to align to the velocity vector
+if (batchInChunk.Has<Rotation>(rotationTypeHandle) && 
+    batchInChunk.Has<LocalToWorld>(l2wTypeHandle))
+{
+    NativeArray<Rotation> rotations = batchInChunk.GetNativeArray(rotationTypeHandle);
+    nativeArray<LocalToWorld> transforms = batchInchunk.GetNativeArray(l2wTypeHandle);
+
+    // By putting the loop inside the check for the
+    // optional components, we can check once per batch
+    // rather than once per entity.
+    for (int i = 0; i < batchInChunk.Count; i++)
+    {
+        float3 direction = math.normalize(velocityVectors[i].Value);
+        float3 up = transforms[i].Up;
+        quaternion rotation = rotations[i].Value;
+
+        quaternion look = quaternion.LookRotation(direction, up);
+        quaternion newRotation = math.slerp(rotation, look, DeltaTime);
+
+        rotations[i] = new Rotation() { Value = newRotation };
+    }
+}
+```
+
+```c#
+// Schedule job
+public class UpdateTranslationFromVelocitySystem : SystemBase {
+    EntityQuery query;
+
+    protected override void OnCreate() {
+        // Set up the query
+        var description = new EntityQueryDesc()
+        {
+            All = new ComponentType[]
+                {
+                    ComponentType.ReadWrite<Translation>(),
+                    ComponentType.ReadOnly<VelocityVector>()
+                }
+        };
+        query = this.GetEntityQuery(description);
+    }
+
+    protected override void OnUpdate() {
+        // Instantiate the job struct
+        var updateFromVelocityJob = new UpdateTranslationFromVelocityJob();
+
+        // Set the job component type handles
+        // "this" is your SystemBase subclass
+        updateFromVelocityJob.translationTypeHandle
+            = this.GetComponentTypeHandle<Translation>(false);
+        updateFromVelocityJob.velocityTypeHandle
+            = this.GetComponentTypeHandle<VelocityVector>(true);
+
+        // Set other data need in job, such as time
+        updateFromVelocityJob.DeltaTime = World.Time.DeltaTime;
+
+        // Schedule the job
+        this.Dependency = updateFromVelocityJob.ScheduleParallel(query, 1, this.Dependency);
+    }
+}
+// 调用 GetComponentTypeHandle时， 确保 isReadOnly 将读取但不写入的参数设置为 true
+// 这些访问模式设置 必须和 struct定义和 EntityQuery中的 等效项 匹配
+
+//不要将 GetComponentTypeHandle 的返回值缓存，必须每次调用时获取
+```
+
+```
+Schedule 选项
+
+Run 在当前 主线程 上立即执行 job  还可以完成当前job依赖的所有计划作业 批处理大小始终为1 整个块
+Schedule 计划作业在当前作业依赖的任何计划作业之后 在工作线程上运行
+        对于由实体查询选择的每个块，将对作业执行函数调用一次 块按顺序处理 批次大小始终为1
+ScheduleParallel 和Schedule相似，不同之处在于可以指定批处理大小，
+        并且并行处理批处理（假定工作线程可用） 而不是顺序处理
+
+ScheduleParallel:
+    设置批次大小
+    ScheduleParallel方法来调度作业并将batchesPerChunk参数设置为正整数
+    使用1 将批处理大小设置为完整块
+
+    用于计划作业的查询所选择的每个块均分为所指定的批次数batchesPerChunk
+    同一个块中的每个批次都包含大约相同数量的实体
+    但是，来自不同块的批次可能包含数量非常不同的实体
+    最大的批处理大小为1，这意味着每个块中的所有实体都在一次调用Execute函数的过程中一起吹了
+    来自不同块的实体永远不能包含在同一批中
+
+    注意：通常最有效的方法是 batchesPerChunk=1 但是并非总时如此
+        例如：实体数量少，函数执行的算法昂贵
+        则可用通过使用少量实体，从并行中得到好处
+```
+
+```c#
+// 跳过具有不变实体的块
+
+// 如果仅在组件值更改后才需要更新实体
+// 则可用将该组件类型添加到EntityQuery的更改筛选器中
+// 该筛选器选择作业的实体和块
+
+// 例如：如果系统读取两个组件，并且仅在前两个组件中的一个已经更改时，才需要更改第三个组件
+// 则可用用以下方法
+EntityQuery query;
+protected override void OnCreate() {
+    query = GetEntityQuery(
+        new ComponentType[]
+        {
+            ComponentType.ReadOnly<InputA>(),
+            ComponentType.ReadOnly<InputB>(),
+            ComponentType.ReadWrite<Output>(),
+        }
+    );
+
+    query.SetChangedVersionFilter(
+        new ComponentType[]
+        {
+            typeof(InputA),
+            typeof(InputB)
+        }
+    );
+}
+// 该EntityQuery过滤器最多可支持两个组成部分
+// 如果向进行更改检查，或者不用EntityQuery
+// 则可用手动进行检查
+// 要进行此检查，使用ArchetypeChunk.DidChange函数将组件的块的更改版本
+//      与System的LastSystemVersion进行比较
+
+// 必须使用struct将LastSystemVersion从System传递到job
+struct UpdateOnChangeJob : IJobEntityBatch {
+    public ComponentTypeHandle<InputA> InputATypeHandle;
+    public ComponentTypeHandle<InputB> InputBTypeHandle;
+    [ReadOnly] public ComponentTypeHandle<Output> OutputTypeHandle;
+    public uint LastSystemVersion;
+
+    [BurstCompile]
+    public void Execute(ArchetypeChunk batchChunk, int batchIndex) {
+        var inputAChanged = batchInChunk.DidChange(InputATypeHandle, LastSystemVersion);
+        var inputBChanged = batchInChunk.DidChange(InputBTypeHandle, LastSystemVersion);
+
+        // If neither component changed, skip the current batch
+        if (!(inputAChanged || inputBChanged))
+            return;
+
+        var inputAs = batchInChunk.GetNativeArray(InputATypeHandle);
+        var inputBs = batchInChunk.GetNativeArray(InputBTypeHandle);
+        var outputs = batchInChunk.GetNativeArray(OutputTypeHandle);
+
+        for (var i = 0; i < outputs.Length; i++)
+        {
+            outputs[i] = new Output{ Value = inputAs[i].Value + inputBs[i].Value };
+        }
+    }
+}
+// 和所有job struct一样，在计划作业之前，必须分配值
+public class UpdateDataOnChangeSystem : SystemBase {
+    EntityQuery query;
+    protected override void OnCreate() {
+        query = GetEntityQuery(
+            new ComponentType[]
+            {
+                ComponentType.ReadOnly<InputA>(),
+                ComponentType.ReadOnly<InputB>(),
+                ComponentType.ReadWrite<Output>(),
+            }
+        );
+    }
+    protected override void OnUpdate() {
+        var job = new UpdateOnChangeJob();
+
+        job.LastSystemVersion = this.LastSystemVersion;
+
+        job.InputATypeHandle = GetComponentTypeHandle<InputA>(true);
+        job.InputBTypeHandle = GetComponentTypeHandle<InputB>(true);
+        job.InputBTypeHandle = GetComponentTypeHandle<Output>(false);
+
+        this.Dependency = job.ScheduleParallel(query, 1, this.Dependency);
+    }
+}
+//！！！ 为了提高效率 更改版本适用于整个块 而不是单个实体
+// 如果另一个具有写入 该类型组件功能的 作业 访问了一个块
+// ECS将增加该组件的更改成本  并且DicChange函数将返回true
+// 即使声明对组件进行写访问的作业实际并未更改组件值，ECS也会增加更改版本
+// 这是读取组件数据而不更新它时，始终应该设置只读的原因
+```
+
+##### 使用 IJobChunk 不再使用，将来会被弃用？
+
+IJobChunk已经被IJobEntityBatch取代，应该使用新的代码  
+
+```
+1 创建 EntityQuery 标识要处理的实体
+2 定义job struct 包括 ArchetypeChunkComponentType 对象的字段，
+    这些对象标识作业必须直接访问的组件的类型。指定 读取 写入 权限
+3 实例化作业结构 在 System 的OnUpdate中安排job
+4 在Execute 函数中 获取NativeArray 作业读取或写入的组件
+    在当前块上迭代，执行代码
+```
+
+```c#
+public class RotationSpeedSystem : SystemBase {
+    private EntityQuery m_Query;
+    protected override void OnCreate() {
+        m_Query = GetEntityQuery(ComponentType.ReadOnly<Rotation>(),
+            ComponentType.ReadOnly<RotationSpeed>());
+    }
+}
+
+// 更复杂的情况 使用 EntityQueryDesc
+// All 必须存在
+// Any 至少一种
+// None 不能存在
+proetcte override void OnCreate() {
+    var queryDescription = new EntityQueryDesc()
+    {
+        None = new ComponentType[]
+        {
+            typeof(Static)
+        },
+        All = new ComponentType[]
+        {
+            ComponentType.ReadWrite<Rotation>(),
+            ComponentType.ReadOnly<RotationSpeed>()
+        }
+    };
+    m_Query = GetEntityQuery(queryDescription);
+}
+
+// 组合查询 逻辑或
+// 包含 A B AB
+protected override void OnCrate() {
+    var queryDescription0 = new EntityQueryDesc
+    {
+        All = new ComponentType[] { typeof(Rotation) }
+    };
+    var queryDescription1 = new EntityQueryDesc
+    {
+        All = new ComponentType[] { typeof(RotationSpeed)}
+    };
+    m_Query = GetEntityQuery(new EntityQueryDesc[] { queryDescription0, queryDescription1 })
+}
+// 可选组件要通过chunk.Has在Execute中判断
+
+// EntityQuery 应该在OnCreate中查询，存储在变量中
+```
+
+```c#
+// IJobChunk结构
+// 要访问Execute方法的块内组件数组，必须 ArchetypeChunkComponentType<T>
+// 必须检查可选组件
+[BurstCompile]
+struct RotationSpeedJob : IJobChunk {
+    public float DeltaTime;
+    public ComponentTypeHandle<Rotation> RotationTypeHandle;
+    [ReadOnly] public ComponentTypeHandle<RotationSpeed> RotationSpeedTypeHandle;
+
+    public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex) {
+        var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
+        var chunkRotationSpeed = chunk.GetNativeArray(RotationSpeedTypeHandle);
+        for (var i = 0; i < chunk.Count; i++)
+        {
+            var rotation = chunkRotations[i];
+            var rotationSpeed = chunkRotationSpeeds[i];
+
+            // Rotate something about its up vector at the speed given by RotationSpeed.
+            chunkRotations[i] = new Rotation
+            {
+                Value = math.mul(math.normalize(rotation.Value), 
+                    quaternion.AxisAngle(math.up(), rotationSpeed.RadiansPerSecond * DeltaTime))
+            };
+
+            if (chunk.Has<OptionalComp>(OptionalCompType))
+            {
+
+            }
+        }
+    }
+}
+// chunkIndex参数作为sortKey参数传递给命令缓冲区函数
+```
+
+```c#
+// 跳过具有不变实体的块
+private EntityQuery m_Query;
+protected override void OnCreate() {
+    m_Query = GetEntityQuery(
+        ComponentType.ReadWrite<Output>(),
+        ComponentType.ReadWrite<InputA>(),
+        ComponentType.ReadWrite<InputB>()
+    );
+    m_Query.SetChangedVersionFilter(
+        new ComponentType[]
+        {
+            ComponentType.ReadWrite<InputA>(),
+            ComponentType.ReadWrite<InputB>()
+        }
+    );
+}
+// 同样的 最多支持两个组件，可用手动检查 ArchetypeChunk.DidChange()
+// LastSystemVersion
+[BurstCompile]
+struct Updatejob : IJobChunk {
+    public ComponentTypeHandle<InputA> InputATypeHandle;
+    public ComponentTypeHandle<InputB> InputBTypeHandle;
+    [ReadOnly] public ComponentTypeHandle<Output> OutputTypeHandle;
+    public unit LastSystemVersion;
+
+    public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex) {
+        var inputAChanged = chunk.DidChange(InputATypeHandle, LastSystemVersion);
+        var inputBChanged = chunk.DidChange(InputBTypeHandle, LastSystemVersion);
+
+        // If neither component changed, skip the current chunk
+        if (!(inputAChanged || inputBChanged))
+            return;
+
+        var inputAs = chunk.GetNativeArray(InputATypeHandle);
+        var inputBs = chunk.GetNativeArray(InputBTypeHandle);
+        var outputs = chunk.GetNativeArray(OutputTypeHandle);
+
+        for (var i = 0; i < outputs.Length; i++) {
+            outputs[i] = new Output{ Value = inputAs[i].Value + inputBs[i].Value };
+        }
+    }
+}
+
+protected override void OnUpdate() {
+    var job = new UpdateJob();
+
+    job.LastSystemVersion = this.LastSystemVersion;
+
+    job.InputATypeHandle = GetComponentTypeHandle(InputA)(true);
+    job.InputBTypeHandle = GetComponentTypeHandle(InputB)(true);
+    job.OutputTypeHandle = GetComponentTypeHandle(Output)(false);
+
+    this.Dependency = job.ScheduleParallel(m_Query, this.Dependency);
+}
+```
+
+```c#
+//实例化并安排job
+protected override void OnUpdate()
+{
+    var job = new RotationSpeedJob()
+    {
+        RotationTypeHandle = GetComponentTypeHandle<Rotation>(false);
+        RotationSpeedTypeHandle = GetComponentTypeHandle<RotationSpeed>(true);
+        DeltaTime = Time.DeltaTime
+    };
+    this.Dependency = job.ScheduleParallel(m_Query, this.Dependency);
+}
+```
+
+##### 手动迭代
+
+```c#
+// 可用在NativeArray中显式请求所有块，用例如 IJobParalleFor进行迭代
+// 如果需要用  不适用于EntityQuery所有块 进行迭代的模型来遍历
+// 可用下面方法：
+public class RotationSpeedSystem : SystemBase
+{
+    [BurstCompile]
+    struct RotationSpeedJob : IJobParallelFor
+    {
+        [DeallocateOnJobCompletion] public NativeArray<ArchetypeChunk> Chunks;
+        public ArchetypeChunkComponetType<RotationQuaternion> RotationType;
+        [ReadOnly] public ArchetypeChunkComponentType<RotationSpeed> RotationSpeedType;
+        public float DeltaTime;
+
+        public void Execute(int chunkIndex)
+        {
+            var chunk = Chunks[chunkIndex];
+            var chunkRotation = chunk.GetNativeArray(RotationType);
+            var chunkSpeed = chunk.GetNativeArray(RotationSpeedType);
+            var instanceCount = chunk.Count;
+
+            for (int i = 0; i < instanceCount; i++)
+            {
+                var chunk = Chunks[chunkIndex];
+                var chunkRotation = chunk.GetNativeArray(RotationType);
+                var chunkSpeed = chunk.GetNativeArray(RotationSpeedType);
+                var instanceCount = chunk.Count;
+
+                for (int i = 0; i < instanceCount; i++)
+                {
+                    var rotation = chunkRotation[i];
+                    var speed = chunkSpeed[i];
+                    rotation.Value = math.mul(math.normalize(rotation.Value), 
+                            quaternion.AxisAngle(math.up(), speed.RadiansPerSecond * DeltaTime));
+                    chunkRotation[i] = rotation;
+                }
+            }
+        }
+    }
+
+    EntityQuery m_Query;
+
+    protected override void OnCreate()
+    {
+        var queryDesc = new EntityQueryDesc
+        {
+            All = new ComponentType[]{ typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>() }
+        };
+
+        m_Query = GetEntityQuery(queryDesc);
+    }
+
+    protected override void OnUpdate()
+    {
+        var rotationType = GetArchetypeChunkComponentType<RotationQuaternion>();
+        var rotationSpeedType = GetArchetypeChunkComponentType<RotationSpeed>(true);
+        var chunks = m_Query.CreateArchetypeChunkArray(Allocator.TempJob);
+
+        var rotationsSpeedJob = new RotationSpeedJob
+        {
+            Chunks = chunks,
+            RotationType = rotationType,
+            RotationSpeedType = rotationSpeedType,
+            DeltaTime = Time.deltaTime;
+        };
+        this.Dependency = rotationSpeedJob.Schedule(chunks.Length, 32, this.Dependency);
+    }
+}
+```
+
+```c#
+// 用EntityManager手动遍历，只能用在测试 调试中 或者时完全受控制的实体集合的孤立世界中
+// 才能用
+var entityManager = World.Active.EntityManager;
+var allEntities = entityManager.GetAllEntities();
+foreach (var entity in allEntities)
+{
+    //...
+}
+allEntities.Dispose();
+
+// 所有块
+var allChunks = entityManager.GetAllChunks();
+foreach (var chunk in allChunks)
+{
+    //...
+}
+allChunks.Dispose();
+```
+
+##### 系统更新顺序
+
+```
+组件系统组
+ComponentSystemGroup类表示应该按照特定顺序一起更新的相关组件系统的列表
+ComponentSystemBase是基类，因此它在所有重要方面都像组件系统一样工作
+可以对其他系统进行排序，具有OnUpdate方法
+最关键的：可以将组件系统组嵌套在其中其他的组件系统组，形成层次结构
+
+默认情况下，Update调用ComponentSystemGroup时，系统上每个成员都调用Update
+如果任何系统成员本身时系统组，它们会递归更新自己的成员，树的深度遍历优先顺序
+
+系统order属性
+[UpdateInGroup]
+指定此系统应该是其成员的ComponentSystemGroup 默认SimulationSystemGroup
+[UpdateBefore]
+[UpdateAfter]
+声明同一组成员，相对顺序
+[DisableAutoCreation]
+防止在默认世界初始化期间创建系统
+显式创建和更新系统
+可以将带有此标签的系统添加到 ComponentSystemGroup 的更新列表中
+然后它将像该列表中的其他系统一样自动进行更新。
+
+默认系统组 此列表的特定内容可能会变
+InitializationSystemGroup  updated at the end of the Initialization phase of the player loop
+    BeginInitializationEntityCommandBufferSystem
+    CopyInitialTransformFromGameObjectSystem
+    SubSceneLiveLinkSystem
+    SubSceneStreamingSystem
+    EndInitializationEntityCommandBufferSystem
+SimulationSystemGroup  updated at the end of the Update phase of the player loop
+    BeginSimulationEntityCommandBufferSystem
+    TransformSystemGroup
+        EndFrameParentSystem
+        CopyTransformFromGameObjectSystem
+        EndFrameTRSToLocalToWorldSystem
+        EndFrameTRSToLocalToParentSystem
+        EndFrameLocalToParentSystem
+        CopyTransformToGameObjectSystem
+    LateSimulationSystemGroup
+    EndSimulationEntityCommandBufferSystem
+PresentationSystemGroup  updated at the end of the PreLateUpdate phase of the player loop
+    BeginPresentationEntityCommandBufferSystem
+    CreateMissingRenderBoundsFromMeshRenderer
+    RenderingSystemBootstrap
+    RenderBoundsUpdateSystem
+    RenderMeshSystem
+    LODGroupSystemV1
+    LodRequirementsUpdateSystem
+    EndPresentationEntityCommandBufferSystem
+```
+
+```c#
+多个世界
+
+// 可以创建多个世界，同一个组件系统类可以在多个世界中初始化，
+// 每个实例可以从更新顺序的不同点以不同速率更新
+
+// 当前无法在给定的世界中手动更新每个系统
+// 但是可以控制在哪个世界中创建那些系统以及应该将其添加到那些现有的系统组中
+// 因此，WorldB可以实例化SystemX和SystemY，将SystemX添加到WorldA的
+// SimulationSystemGroup，并将SystemY添加到默认的WorldA PresentationSystemGroup
+// 这些系统可以向往常一样进行排序，并将相应的组一起更新
+
+// 自定义 初始化 Systems ，在多个 世界 中注册系统组
+public interface ICustomBootstrap
+{
+    // Returns the systems which should be handled by the default bootstrap process.
+    // If null is returned the default world will not be created at all.
+    // Empty list creates default world and entrypoints
+    List<Type> Initialize(List<Type> systems);
+}
+//实现这个接口，组件系统类型的完整列表将 Initialize在默认世界初始化之前
+// 传递给classes方法
+// 定制的引导程序可以遍历这个列表，并在所需要的任何 World中创建系统
+// 可以从initialize 方法返回系统列表 这些系统将作为常规
 ```
 
 ### ECS深潜
