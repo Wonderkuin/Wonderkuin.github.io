@@ -10,10 +10,124 @@ Hybrid Renderer V2 URP或者DHRP开启
 ENABLE_HYBRID_RENDERER_V2  
 
 #### 包安装
+
+```c#
+// DOTS设置
+
+// 推荐安装
+// com.unity.entities
+// com.unity.rendering.hybrid
+// com.unity.dots.editor
+
+// Domain重载
+// 避免进入Play模式时，缓慢的 Domain Reload
+// 在 Edit ProjectSettings Editor 下面选中 进入播放模式选项
+// 但是不要选中 重新加载域 重新加载场景 框
+// 但是要记住禁用域加载时，
+
+// 禁用前
+public class StaticCounterExample : MonoBehaviour {
+    // this counter will not reset to zero when Domain Reloading is disabled
+    static int counter = 0; 
+    // Update is called once per frame
+    void Update()    {
+            if (Input.GetButtonDown("Jump"))            {
+                    counter++;
+                    Debug.Log("Counter: " + counter);
+            }
+    }
+}
+
+// 禁用后
+public class StaticCounterExampleFixed : MonoBehaviour{
+    static int counter = 0;
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void Init()    {
+            Debug.Log("Counter reset.");
+            counter = 0;   
+    }
+    // Update is called once per frame
+    void Update()    {
+            if (Input.GetButtonDown("Jump"))            {
+                counter++;
+                Debug.Log("Counter: " + counter);
+            }
+    }
+}
+
+// 禁用前
+public class StaticEventExample : MonoBehaviour{
+    void Start()    {
+            Debug.Log("Registering quit function");
+            Application.quitting += Quit;
+    }
+    static void Quit()    {
+        Debug.Log("Quitting!");
+    }
+}
+
+// 禁用后
+public class StaticEventExampleFixed : MonoBehaviour{
+    [RuntimeInitializeOnLoadMethod]
+    static void RunOnStart()    {
+            Debug.Log("Unregistering quit function");
+            Application.quitting -= Quit;
+    }
+    void Start()    {
+            Debug.Log("Registering quit function");
+            Application.quitting += Quit;
+    }
+    static void Quit()    {
+        Debug.Log("Quitting the Player");
+    }
+}
+
+// 独立版本
+//     !!!
+//     警告：不要使用 File 的 Build And Run 构建DOTS项目
+//     必须使用  Build Configuration Asset Inspector window 里面的 构建 构建并运行
+//     实体子场景不包括在通过 构建并运行 菜单进行的构建中，并且无法加载
+// com.unity.platforms.android
+// com.unity.platforms.ios
+// com.unity.platforms.linux
+// com.unity.platforms.macos
+// com.unity.platforms.web
+// com.unity.platforms.windows
+
+//  Asset Create Build 将子场景添加到 独立项目中，确保要添加场景
+// 或者启用 生成当前场景
+```
+
+```
+官方包
+
+DOTS ECS                                 com.unity.entities
+Rendering                                com.unity.rendering.hybrid
+- Hybrid Renderer V2                     com.unity.render-pipelines.high-definition or com.unity.render-pipelines.universal
+- Animation                              com.unity.animation
+Audio                                    com.unity.audio.dspgraph
+Physics                                  com.unity.physics or com.havok.physics
+- Smooth Penetration Recovery            com.havok.physics
+- Stable Object Stacking                 com.havok.physics
+- Remove Speculative Contacts            com.havok.physics
+- Rigidbody Sleeping                     com.havok.physics
+- Visual Debugger                        com.havok.physics
+Multiplayer                              com.unity.netcode
+- Lag Compensation                       com.unity.physics
+Project Building                         com.unity.platforms
+- Android                                com.unity.platforms.android
+- Linux	                                 com.unity.platforms.linux
+- macOS	                                 com.unity.platforms.macos
+- Web                                    com.unity.platforms.web
+- Windows                                com.unity.platforms.windows
+```
+
 com.unity.entities  
 Entities  
 Jobs  
 Burst  
+
+Collections
 
 com.unity.mathematics  
 Mathematics  
@@ -4719,10 +4833,837 @@ public interface ICustomBootstrap
 //实现这个接口，组件系统类型的完整列表将 Initialize在默认世界初始化之前
 // 传递给classes方法
 // 定制的引导程序可以遍历这个列表，并在所需要的任何 World中创建系统
-// 可以从initialize 方法返回系统列表 这些系统将作为常规
+// 可以从initialize 方法返回系统列表 这些系统将作为常规默认世界初始化的一部分创建
+
+//例如，自定义 MyCustomBoostrap.Initialize()的典型过程
+// 1 创建任何其他Worlds及其顶级ComponentSystemGroups
+// 2 对于系统类型列表中的每个类型
+//    1 向上遍历ComponentSystemGroup层次结构以找到此系统Type的顶级组
+//    2 如果它是在步骤1中创建的组之一，请在该世界中创建系统，
+//      然后使用 group.AddSystemToUpdateList() 将其添加到层次结构中
+//    3 如果不是，请将此类型附加到默认世界组之一
+// 3 在新的顶级组上调用 group.SortSystemUpdateList()
+//    1 可选 将它们添加到默认世界组之一
+// 4 将未处理的系统列表返回给 DefaultWorldInitialization
+
+// 注意！！！ ECS框架通过 反射 查找 ICustomBootstrap 实现
 ```
 
-### ECS深潜
+```
+提示 和 最佳做法
+1   使用 [UpdateInGroup] 为编写的每个系统指定系统组。
+    如果未指定，默认 SimulationSystemGroup
+2   使用手动选定的 ComponentSystemGroups 来更新Unity Player Loop
+    将 [DisableAutoCreation] 属性添加到组件系统 或 系统组
+    可防止将其创建或添加到默认系统组
+    可以用 World.GetOrCreateSystem手动创建系统，
+    并通过从主线程手动调用MySystem.Update进行更新
+    这是在Unity Player循环中的其他位置插入系统的简便方法
+3   EntityCommandBufferSystem如果可能的化，使用现有的，而不是添加新的
+    一个EntityCommandBufferSystem代表同步点，在该同步点，主线程在处理任何未完成的
+    EntityCommandBuffers 之前先等待工作线程完成
+4   避免在ComponentSystemGroup中加入自定义逻辑
+    由于从ComponentSystemGroup功能上来说本身就是一个组件系统，
+    因此可能很想在其OnUpdate中添加自定义处理，执行一些工作
+    但是不建议这样，因为从外部尚不清楚自定义逻辑在更新组成员前还是之后执行
+    最好将系统限制为一种分组机制，并且在相对于该组，显式排序
+```
+
+##### Job 依赖
+
+```
+Unity根据 System 读取和写入的ECS组件 分析每个 System 的数据依赖性
+如果在框架中较早更新的系统读取了较新系统写入的数据，或者写入了较新系统读取的数据
+则第二个系统依赖于第一个系统
+为了避免竞争，作业调度程序确保在运行System job之前，System依赖的所有Job都完成
+
+系统的Dependency属性是JobHandle，代表与系统的ECS相关的依赖关系
+在OnUpdate之前，Dependency属性反映了系统对先前作业的传入依赖关系
+默认情况下，系统根据在系统中Schedule Job 时 读取 和 写入 的组件来更新Dependency
+
+要覆盖默认行为，需要使用 Entities.ForEach 和 Job.WithCode的重载版本
+这些重载版本将job dependency作为参数，并将更新后的dependency作为JobHandle返回
+使用这些构造函数的显式版本时，ECS不会自动将作业句柄与系统Dependency属性结合在一起
+必须在需要时手动组合
+
+注意，系统的Dependency属性不会跟踪job对NativeArrays数据可能具有的依赖关系
+如果在一个job中编写NativeArray并在另一个作业中读取该数组，则必须手动添加第一个作业的
+JobHandle作为第二个作业中的依赖项 通常使用 JobHandle.CombineDependencies
+
+当调用 Entities.ForEach.Run 时，作业计划程序会在开始ForEach迭代之前，
+完成系统依赖的所有计划作业
+如果还使用WithStructuralChanges作为构造的一部分，则作业计划程序将完成所有正在运行的计划作业。
+结构上的更改也会使对组件数据的任何直接引用无效
+```
+
+##### 查找数据
+
+```
+访问和修改ECS数据最有效的方法 是使用带有EntityQuery和Job的System
+这样可以以最少的 内存高速缓存未命中 来最佳利用CPU资源
+
+实际上，数据设计的目标之一 应该是 使用最有效，最快的路径执行大部分数据转换
+但是 有时需要在程序的任意位置访问任意实体的任意组件
+
+给定一个Entity对象，可以在其 IComponentData 和 动态缓冲区 中查找数据
+方法的不同取决于 Entities.ForEach 还是 [IJobChunk] 还是 主线程
+```
+
+```c#
+//在系统中查找实体数据
+
+// 使用 GetComponent<T>(Entity) 从System的Entities.ForEach
+// 或Job.WithCode函数内部查找存储在任意实体组件中的数据
+
+// 例如，如果 目标 组件的实体字段标识了要定位的实体，可以使用以下代码
+// 跟踪实体向其目标旋转
+public partial class TranckingSystem : SystemBase {
+    protected override void OnUpdate() {
+        float deltaTime = this.Time.DeltaTime;
+
+        Entities
+            .ForEach(
+                (ref Rotation orientation, in LocalToWorld transform, in Target target)=>
+                {
+                    // Check to make sure the target Entity still exists and has
+                    // the needed component
+                    if (!HasComponent<LocalToWorld>(target.entity))
+                        return;
+
+                    // Look up the entity data
+                    LocalToWorld targetTransform = GetComponent<LocalToWorld>(target.entity);
+                    float3 targetPosition = targetTransform.Position;
+
+                    // Calculate the rotation
+                    float3 displacement = targetPosition - transform.Position;
+                    float3 upReference = new float3(0, 1, 0);
+                    quaternion lookRotation = quaternion.LookRotationSafe(dispacement, upReference);
+
+                    orientation.Value = math.slerp(orientation.Value, lookRotation, deltaTime);
+                }
+            )
+            .ScheduleParallel();
+    }
+}
+
+//访问存储在 动态缓冲区 中的数据需要额外步骤
+// 必须在 OnUpdate 方法中声明 BufferFromEntity类型的局部变量
+// 在 lambda函数中 捕获 局部变量
+public struct BufferData : IBufferElementData {
+    public float Value;
+}
+public partial class BufferLookupSystem : SystemBase {
+    protected override void OnUpdate() {
+        BufferFromEntity<BufferData> buffersOfAllEntities = 
+            this.GetBufferFromEntity<BufferData>(true);
+
+        Entities
+            .ForEach((ref Rotation orientation, in LocalToWorld transform, in Target target)=>{
+                // Check to make sure the target Entity with this buffer type still exists
+                if (!buffersOfAllEntities.HasComponent(target.entity))
+                    return;
+
+                // Get a reference to the buffer
+                DynamicBuffer<BufferData> bufferOfOneEntity = 
+                    buffersOfAllEntities[target.entity];
+                
+                // Use the data in the buffer
+                float avg = 0;
+                for (var i = 0; i < bufferOfOneEntity.Length; i++)
+                {
+                    avg += bufferOfOneEntity[i].Value;
+                }
+                if (bufferOfOneEntity.Length > 0)
+                    avg /= bufferOfOneEntity.Length;
+            })
+            .ScheduleParallel();
+    }
+}
+```
+
+```c#
+// 在IJobEntityBatch中查找实体数据
+
+// 使用 ComponentDataFromEntity 或者 BufferFromEntity来获取组件的 类似数组的接口，用Entity对象索引
+
+// 例子：如果 目标组件 的 实体字段标识了要定位的实体，则可以将以下字段添加到作业结构中以查找目标的世界位置
+[ReadOnly]
+public ComponentDataFromEntity<LocalToWorld> EntityPosition;
+// 请注意，此声明使用"只读"属性。除非写入所访问的组件，否则应始终将组件数据从Entity对象声明为只读对象。
+
+var job = new ChaserSystemJob();
+job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
+
+// 在job的Execute内，可以使用entity对象查找组件的值
+float3 targetPosition = EntityPositions[targetEntity].Position;
+
+// 以下完整示例，显示了System，将具有包含目标的Entity对象的target字段的实体移向目标的当前位置
+public class MoveTowardsEntitySystem : SystemBase {
+    private EntityQuery query;
+
+    [BurstCompile]
+    private struct MoveTowardsJob : IJobEntityBatch {
+        // Read-write data in the current chunk
+        public ComponentTypeHandle<Translation> PositionTypeHandleAccessor;
+
+        // Read-only data in the current chunk
+        [ReadOnly]
+        public ComponentTypeHandle<Target> TargetTypeHandleAccessor;
+
+        // Read-only data stored (potentially) in other chunks
+        [ReadOnly]
+        public ComponentDataFromEntity<LocalToWorld> EntityPositions;
+
+        // Non-entity data
+        public float deltaTime;
+
+        public void Execute (ArchetypeChunk batchInChunk, int batchIndex) {
+            // Get arrays of the components in chunk
+            NativeArray<Translation> positions
+                = batchInChunk.GetNativeArray<Translation>(PositionTypeHandleAccessor);
+            NativeArray<Target> targets
+                = batchInChunk.GetNativeArray<Target>(TargetTypeHandleAccessor);
+
+            for (int i = 0; i < positions.Length; i++) {
+                // Get the target entity object
+                Entity targetEntity = targets[i].entity;
+
+                // Check that the target still exists
+                if (!EntityPositions.HasComponent(targetEntity))
+                    continue;
+
+                // Update translation to move the chasing entity toward the target
+                float3 targetPosition = EntityPositions[targetEntity].Position;
+                float3 chaserPosition = positions[i].Value;
+
+                float3 displacement = targetPosition - chaserPosition;
+                positions[i] = new Translation
+                {
+                    Value = chaserPosition + displacement * deltaTime;
+                }
+            }
+        }
+    }
+
+    protected override void OnCreate() {
+        // Select all entities that have Translation and Target Componentx
+        query = this.GetEntityQuery
+        (
+            typeof(Translation),
+            ComponentType.ReadOnly<Target>()
+        );
+    }
+
+    protected override void OnUpdate() {
+        // Create the job
+        var job = new MoveTowardsJob();
+
+        // Set the chunk data accessors
+        job.PositionTypeHandleAccessor = 
+            this.GetComponentTypeHandle<Translation>(false);
+        job.TargetTypeHandleAccessor = 
+            this.GetComponentTypeHandle<Target>(true);
+
+        // Set the component data lookup field
+        job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
+
+        // Set non-ECS data fields
+        job.deltaTime = this.Time.DeltaTime;
+
+        // Schedule the job using Dependency property
+        this.Dependency = job.ScheduleParallel(query, 1, this.Dependency);
+    }
+}
+```
+
+```
+数据存取错误
+
+如果 要查找的数据 和 直接在job中 读取 写入 的数据重叠，
+随机访问会导致争用情况和错误
+
+如果确定要在作业中直接读取或者写入特定实体数据 和 正在随机读取写入的特定实体数据之间没有重叠
+则可以用 NativeDisableParallelForRestriction 属性标记访问器对象
+```
+
+##### EntityCommandBuffer
+
+```
+实体命令缓冲区 解决两个重要问题
+1 在工作时，无法访问EntityManager
+2 执行结构更改，如创建实体时，将创建一个同步点，并且必须等待所有作业完成
+
+实体命令缓冲区 允许排队变化，无论从工作线程还是主线程，使他们能在主线程生效
+
+实体命令缓冲区系统
+在帧中明确定义的位置 调用 在ECB中排队的命令
+可以从同一个 实体命令缓冲区系统 中获取多个ECB，系统将按照更新时创建他们的顺序来播放所有ECB
+系统创建一个同步点，而不是每个ECB创建一个同步点
+
+默认的World初始化提供了 三个系统组 initialization simulation presentation
+在一个组内，有一个实体命令缓冲区系统，在组中任何其他系统前运行
+另一个在该组中的所有其他系统后运行
+
+最好使用现有的EntityCommandBuffer，不要自己创建，以减少同步点
+
+如果要使用 parallel job中的ECB，必须确保首先通过调用 ToConcurrent 将其转换为并非ECB
+为了确保ECB中命令的顺序不取决于jobs分配，还必须将当前查询中实体的索引传递给每个操作
+```
+
+```c#
+struct LifeTime : IComponentData {
+    public byte Value;
+}
+
+partial class LifetimeSystem : SystemBase {
+    EndSimulationEntityCommandBufferSystem m_EndSimulationEcbSystem;
+    protected override void OnCreate() {
+        base.OnCreate();
+        // Find the ECB system once and store it for later usage
+        m_EndSimulationEcbSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
+    }
+    protected override void OnUpdate() {
+        // Acquire an ECB and convert it to a concurrent one to be able
+        // to use it from a parallel job.
+        var ecb = m_EndSimulationEcbSystem.CreateCommandBuffer().AsParallelWriter();
+        Entities
+            .ForEach((Entity entity, int entityInQueryIndex, ref Lifetime, lifetime)=>{
+                // Track the lifetime of an entity and destroy it once
+                // the lifetime reaches zero
+                if (lifetime.Value == 0) {
+                    // pass the entityInQueryIndex to the operation so
+                    // the ECB can play back the commands in the right
+                    // order
+                    ecb.DestroyEntity(entityInQueryIndex, entity);
+                }
+                else
+                {
+                    lifetime.Value -= 1;
+                }
+            }).ScheduleParallel();
+
+            // Make sure that the ECB system knows about our job
+            m_EndSimulationEcbSystem.AddJobHandleForProducer(this.Dependency);
+    }
+}
+```
+
+#### 同步点
+
+```
+Sync Point 是程序执行中的一个点，它等待到目前为止 已经调度的所有job的完成
+同步点会限制一段时间内使用 作业系统中所有可用工作线程的能力
+因此应该避免同步点
+
+结构变化
+同步点是由 在组件上执行任何其他作业时 无法安全执行的操作引起的
+ECS中数据的结构更改是同步点的主要原因
+-- 创建实体
+-- 删除实体
+-- 向实体添加组件
+-- 从实体中删除组件
+-- 更改共享组件的值
+
+广义上讲，任何更改实体原型或导致块中实体顺序更改的操作都是结构性更改。
+结构更改只能在主线程执行
+
+结构更改不仅需要同步点，而且还会使对任何组件数据的所有直接引用无效
+包括 DynamicBuffer 的实例以及提供直接访问组件
+例如： ComponentSystemBase.GetComponentDataFromEntity
+
+避免同步点
+可以使用 ECB 实体命令缓冲区 将结构过呢刚刚排入队列，而不是立即执行
+存储在ECB中的命令 可以在帧中的稍后一点 调用
+当 调用 ECB时，会将跨帧分布的多个同步点减少到单个
+
+每个标准ComponentSystemGroup实例都提供一个EntityCommandBufferSystem
+作为组中更新第一个和最后一个的系统
+通过从这些标准ECB系统之一获取ECB对象，组内的所有结构更改都发生在帧中的同一点
+这样只有一个同步点而不是多个
+
+ECB还允许记录job中的结构更改，如果没有ECB，则只能在主线程上进行结构更改
+即使在主线程上，在EBC中记录命令 然后调用 通常比使用EntityManager类本身进行一次一个的结构更改要快
+
+如果不能将ECBS用于任务，可以尝试将系统按照执行顺序进行结构更改的所有系统组合
+如果两个系统都进行结构更改，则只有顺序才能产生同步点
+```
+
+#### Write groups
+
+```
+常见的ECS模式是 系统读取一组输入组件 并将其写入另一组组件 作为输出
+但是，在某些情况下，可能需要覆盖系统的输出，基于不同的输入集 使用不同的系统来更新输出组件
+
+Write Groups为一个系统提供了一种覆盖另一个系统的机制，即使不能更改另一个系统也是如此
+
+目标组件类型的Write Groups由ECS应用 WriteGroup属性的 所有其他组件类型组成
+并且以该目标组件类型作为参数
+作为系统创建者，可以使用WriteGroup，以便系统用户可以排除系统将选择和处理的实体
+通过这种过滤机制，系统用户可以根据自己的逻辑为排除的实体更新组件，同时让系统在其余组件上正常运行
+
+要使用WriteGroup，必须在系统中的查询上使用 Write Group filter option
+这会从查询中排除所有具有某个组件的写入组中所有组件的实体，这些组件在查询中被标记为可写
+
+要覆盖使用WriteGroup的系统，要将自己的组件类型标记为该系统的输出组件类型的WriteGroup的一部分
+原始系统将忽略具有组件的任何实体，并且可以使用自己的系统更新这些实体的数据
+```
+
+```c#
+// 示例：使用外部程序包 根据游戏中所有角色的健康状况为其着色
+public struct HealthComponent : IComponentData {
+    public int Value;
+}
+
+public struct ColorComponent : IComponentData {
+    public float4 Value;
+}
+
+// ComputeColorFromHealthSystem 读取 HealthComponent 写入 ColorComponent
+// RenderWithColorComponent 读取 ColorComponent
+
+// 为了标识玩家何时使用道具，并且角色无敌
+// 可以在角色的实体上附加一个 InvincibleTagComponent 
+// 这种情况 角色改为单独不同的颜色，上面的示例无法容纳该颜色
+
+// 可以创建自己的系统 覆盖ColorComponent的值，但 理想情况下
+// ComputeColorFromHealthSystem 不会为实体计算颜色
+// 应该忽略具有任何 InvincibleTagComponent的实体
+
+// 当知道计算的值将被覆盖，可以忽略系统查询的实体
+// 1 在 InvincibleTagComponent 必须标记为WriteGroup的一部分ColorComponent
+[WriteGroup(typeof(ColorComponent))]
+struct InvincibleTagComponent : IComponnetData {}
+// 写入组ColorComponent 包括所有具有WriteGroup属性typeof(ColorComponent)作为参数的组件类型
+// 2 在 ComputeColorFromHealthSystem必须明确支持写入组
+// 为此，系统需要 EntityQueryOptions.FilterWriteGroup为其所有查询指定选项
+protected override void OnUpdate() {
+    Entities
+        .WithName("ComponentColor")
+        .WithEntityQueryOptions(EntityQueryOptions.FilterWriteGroup) // support write groups
+        .ForEach((ref ColorComponent color, in HealthComponent health)=>{
+            // compute color here
+        }).ScheduleParallel();
+}
+// 执行此操作时：
+// 1 系统检测到 WriteGroup ColorComponent
+// 2 查找写入组ColorComponent 查找其中的 InvincibleTagComponent
+// 3 排除具有 InvincibleTagComponent 的实体
+
+// 示例参考 Unity.Transforms代码，为每个组件使用WriteGroup LocalToWorld
+```
+
+```c#
+//创建WriteGroup
+// 不要将W加入自己的WriteGroup
+public struct W : IComponentData {
+    public int Value;
+}
+[WriteGroup(typeof(W))]
+public struct A : IComponentData {
+    public int Value;
+}
+[WriteGroup(typeof(W))]
+public struct B : IComponentData {
+    public int Value;
+}
+```
+
+```c#
+//启用过滤
+public class AddingSystem : Systembase {
+    protected override void OnUpdate() {
+        Entities
+            // support write groups by setting entityQueryOptions
+            .WithEntityQueryOptions(EntityQueryOptions.FilterWriteGroup)
+            .ForEach((ref W w, in B b)=>{
+                // perform computation here
+            }).ScheduleParallel();
+    }
+}
+// 对于EntityQueryDesc ，在创建时设置
+public class AddingSystem : SystemBase {
+    private EntityQuery m_Query;
+    protected override void OnCreate() {
+        var queryDescription = new EntityQueryDesc
+        {
+            All = new ComponentType[]{
+                ComponentType.ReadWrite<W>,
+                ComponentType.ReadOnly<B>
+            },
+            Options = EntityQueryOptions.FilterWriteGroup
+        };
+        m_Query = GetEntityQuery(queryDescription);
+    }
+}
+// 排除任何 A， 因为 W可写，A属于W组
+// 不排除任何 B， 因为B在All中明确指定
+```
+
+```c#
+//覆盖另一个使用WriteGroup的系统
+
+// 如果系统在查询中 通过WriteGroup筛选，可以使用自己的系统覆盖该系统并写出那些组件
+// 要覆盖系统，要将自己的组件添加到其他系统要写入的组件的WriteGroup中
+// 由于WriteGroup筛选排除了查询中没有明确要求的WriteGroup中的任何组件
+// 因此其他系统忽略具有组件的任何实体
+
+// 例如：如果要通过指定旋转角度和轴 设置实体的方向
+// 可以创建一个组件和一个系统
+// 将角度和轴 的值转换为 四元数 ，并写入Unity.Transforms.Rotation组件
+// 为了防止Unity.Transforms 系统更新Rotation
+// 无论是否拥有其他组件，都可以将组件放在Rotation组中
+using System;
+using Unity.Collections;
+using Unity.Entities;
+using Unity.Transforms;
+using Unity.Mathematics;
+
+[Serializable]
+[WriteGroup(typeof(Rotation))]
+public struct RotationAngleAxis : IComponentData {
+    public float Angle;
+    public float3 Axis;
+}
+
+// 这样，可以用 RotationAngleAxis 组件更新实体，不会发生争用
+using Unity.Burst;
+using Unity.Entities;
+using Unity.Jobs;
+using Unity.Collections;
+using Unity.Mathematics;
+using Unity.Transforms;
+
+public class RotationAngleAxisSystem : SystemBase {
+    protected override void OnUpdate() {
+        Entities.ForEach((ref Rotation destination, in RotationAngleAxis source)=>{
+            destination.Value
+                = quaternion.AxisAngle(math.normalize(source.Axis), source.Angle);
+        }).ScheduleParallel();
+    }
+}
+```
+
+```c#
+// 拓展使用WriteGroup的另一个系统
+// 拓展 而不是 覆盖
+// 或者运行 将来的系统 覆盖或拓展
+// 那么 可以在自己的系统上启用WriteGroup筛选
+// 默认情况 两个系统都不会处理组件的任何组合，必须显示查询和处理每个组合
+
+// 前面 W A B
+// 如果 新的 C 添加到 W组
+// 则新系统查询 C 可能也带有 A B
+// 如果新系统也开启了筛选，那就不会带A B了
+// 就必须显示查询有意义的每个组合
+
+var query = new EntityQueryDesc
+{
+    All = new ComponentType[] {
+        ComponentType.ReadOnly<C>(),
+        ComponentType.ReadWrite<W>()
+    },
+    Any = new ComponentType[] {
+        ComponentType.ReadOnly<A>(),
+        ComponentType.ReadOnly<B>()
+    },
+    Options = EntityQueryOptions.FilterWriteGroup
+};
+```
+
+#### 版本号
+
+```c#
+//优化策略
+//版本号是32位带符号整数，一直增加，有整数溢出是C#定义的行为
+bool VersionBIsMoreRecent = (VersionB - VersionA) > 0;
+// 通常无法保证版本号增加多少
+```
+
+```
+EntityId.Version
+一个EntityId 有 索引 版本号
+由于ECS 回收索引， EntityManager每次实体销毁时，版本号增加
+如果EntityId 中查找版本号不匹配EntityManager,
+意味着引用的实体不再存在
+例如 知道EntityId 调用 ComponentDataFromEntity.Exists
+
+World.Version
+ECS 每次创建或者销毁System时，都会增加World的版本号
+
+EntityDataManager.GlobalVersion
+在每个job component system更新前增加
+
+System.LastSystemVersion
+每次EntityDataManager.GlobalVersion更新后取的值
+
+Chunk.ChangeVersion
+EntityDataManager.GlobalVersion上次访问组件数组时的值
+共享组件的版本号 没有作用
+WithChangeFilter在Entities.ForEach构造中使用，ECS会比较
+块的ChangeVersion和System.LastSystemVersion
+并且它仅处理其组件数组 在系统上一次开始运行后 可写的块
+例如：如果保证自上一帧以来，一组单位的Version未变
+则可以跳过检查这些单位是否更新
+
+EntityManager.m_ComponentTypeOrderVersion[]
+对于每种非共享组件类型，涉及该类型的迭代器无效时，ECS会增加版本号
+任何可能修改该类型的数组的东西
+例如：如果特定组件标识的静态对象和每个块的边界框
+则仅当组件的类型顺序版本发生更改时，才需要更新边界框
+
+SharedComponentDatamanager.m_SharedComponentVersion[]
+存储在引用共享组件的块中的实体发生任何结构更改时，增加版本号
+例如：保留每个共享组件的实体计数，则可以使用该版本号仅在相应版本号发生更改时重做每个计数
+```
+
+#### Job 拓展
+
+```
+Unity C# 作业系统可以多线程运行代码 提供调度，并行处理，多线程安全
+jobs系统是Unity的核心，提供用于创建和运行job的通用接口和类 不论是否用ECS
+
+IJob 创建一个可以在作业系统计划程序确定的任何线程或核心上运行的作业
+IJobParallelFor 创建一个可以在多个线程上并行运行的作业，以处理NativeContainer的元素
+IJobExtensions 提供扩展方法以运行IJobs
+IJobParallelForExtensions 提供扩展方法以运行IJobParallelFor作业
+JobHandle 访问预定作业的句柄 可以使用JobHandle实例来指定作业之间的依赖关系
+```
+
+#### 通用 Jobs
+
+```c#
+//普通的c#中，可以使用继承和接口使一段代码可以处理多种类型
+// void foo(IBlendable a) {}
+
+// HPC#中，不能使用托管类型，或者虚拟方法，因此 泛型是唯一选择
+void foo<T>(T a) where T : struct, IBlendable {}
+
+//作业必须用HPC#
+[BurstCompile()]
+public struct BlendJob<T> : IJob where T : struct, IBlendable {
+    public NativeRefreence<T> blendable;
+
+    public void Execute() {
+        var val = blendable.Value;
+        val.Blend();
+        blendable.Value = val;
+    }
+}
+
+// Burst安排通用job
+[assembly: RegisterGenericJobType(typeof(MyJob<int, float>))]
+// 没有注册的job会引发异常
+
+// 自动注册具体job
+var job = new MyJob<int, float>();
+
+//间接实例化具体job，不会自动注册
+void makeJob<T>() {
+    new MyJob<T, float>().Schedule();
+}
+void foo(){
+    makeJob<int>(); //不行
+}
+
+//作为返回类型或者out是可以注册的
+MyJob<T, float> makeJob<T>() {
+    var j = new MyJob<T, float>();
+    j.Schedule();
+    return j;
+}
+void foo() {
+    makeJob<int>(); //可以
+}
+
+//多级间接注册，可以
+MyJob<T, float> makeJob<T>() {
+    var j = MyJob<T, float>();
+    j.Schedule();
+    return j;
+}
+void foo<T>() {
+    makeJob<T>();
+}
+var bar() {
+    foo<int>(); //可以
+}
+
+//将通用job嵌套在另一个类或者结构里
+struct BlendJobWrapper<T> where T : struct, IBlendable {
+    public T blendable;
+
+    [BurstCompile()]
+    public struct BlendJob : IJob {
+        public T blendable;
+        public void Execute() {}
+    }
+
+    public JobHandle Schedule(JobHandle dep = new JobHandle()) {
+        return new BlendJob { blendable = blendable }.Schedule(dep);
+    }
+}
+```
+
+```c#
+//示例 job化 排序
+public unsafe static JobHandle Sort<T, U>(T* array, int length, U comp, JobHandle deps)
+    where T : unmanged
+    where U : IComparer<T>
+{
+    if (length == 0)
+        return inputDeps;
+
+    var segmentSortJob = new SegmentSort<T, U> { Data = array, Comp = comp, Length = length, SegmentWith = 1024 };
+    var segmentSortMergeJob = new SegmentSortMerge<T, U> { Data = array, Comp = comp, Length = length, SegmentWith = 1024 }
+
+    var segmentCount = (length + 1023) / 1024;
+    var workerSegmentCount = segmentCount / math.max(1, JobsUtility.MaxJobThreadCount);
+    var handle = segmentSortJob.Schedule(segmentCount, workerSegmentCount, deps);
+    return segmentSortMergeJob.Schedule(segmentSortJobHandle);
+}
+// 请注意，排序分为两个作业：第一个将数组拆分为多个子节，然后分别（并行）对它们进行排序；
+// 第二个等待第一个，然后将这些排序的子节合并为最终的排序结果。
+
+// 但是，当前的定义，方法不会自动注册这两个泛型作业，可以用out参数
+public unsafe static JobHandle Sort<T, U>(T* array, int length, U comp, JobHandle deps
+        out SegmentSort<T, U> segmentSortJob, out SegmentSortMerge<T, U> segmentSortMergeJob)
+    where T : unmanaged
+    where U : IComparer<T>
+{
+    if (length == 0)
+        return inputDeps;
+
+    segmentSortJob = new SegmentSort<T, U> { Data = array, Comp = comp, Length = length, SegmentWidth = 1024 };
+    segmentSortMergeJob = new SegmentSortMerge<T, U> { Data = array, Comp = comp, Length = length, SegmentWidth = 1024 };
+
+    var segmentCount = (length + 1023) / 1024;
+    var workerSegmentCount = segmentCount / math.max(1, JobsUtility.MaxJobThreadCount);
+    var handle = segmentSortJob.Schedule(segmentCount, workerSegmentCount, deps);
+    return segmentSortMergeJob.Schedule(segmentSortJobHandle);
+}
+// 虽然可以，但是太丑了
+
+// 将两个作业类型包装
+unsafe struct SortJob<T, U> :
+    where T : unamanged
+    where U : IComparer<T>
+{
+    public T* data;
+    public U comparer;
+    public int length;
+
+    unsafe struct SegmentSort : IJobParalleFor {
+        [NativeDisableUnsafePtrRestriction]
+        public T* data;
+        public U comp;
+        public int length;
+        public int segmentWidth;
+
+        public void Execute(int index) {...}
+    }
+
+    unsafe struct SegmentSortMerge : IJob {
+        [NativeDisableUnsafePtrRestriction]
+        public T* data;
+        public U comp;
+        public int length;
+        public int segmentWidth;
+
+        public void Execute() {...}
+    }
+
+    public JobHandle Schedule(JobHandle dep = new JobHandle()) {
+        if (length == 0)
+            return inputDeps;
+        var segmentSortJob = new SegmentSort<T, U> { Data = array, Comp = comp, Length = length, SegmentWidth = 1024 };
+        var segmentSortMergeJob = new SegmentSortMerge<T, U> { Data = array, Comp = comp, Length = length, SegmentWidth = 1024 };
+
+        var segmentCount = (length + 1023) / 1024;
+        var workerSegmentCount = segmentCount / math.max(1, JobsUtility.MaxJobThreadCount);
+        var handle = segmentSortJob.Schedule(segmentCount, workerSegmentCount, deps);
+        return segmentSortMergeJob.Schedule(segmentSortJobHandle);
+    }
+}
+// 这种安排中，Sort用户无需调用方法，创建实例SortJob并调用Schedule
+// 也能自动 注册 SegmentSort SegmentSortMerge
+```
+
+### 建立游戏玩法
+
+```
+Unity.Transforms 提供用于定义世界空间变换 3D对象层次结构以及管理他们的系统的组件
+Unity.Hybrid.Renderer 提供组件和系统以在Unity运行时中呈现ECS实体
+
+无需定义自己的MonoBehaviour来存储实例数据和实现自定义游戏逻辑
+可以定义ECS组件，在运行时存储数据，并为自定义逻辑编写系统
+```
+
+```
+GameObject 转换
+各种转换系统会识别MonoBehaviour组件，转换为基于ECS的组件
+例如：Unity.Transforms 转换系统 检查 UnityEngine.Transform 添加ECS组件 如LocalToWorld
+
+可以实现 IConvertGameObjectToEntity MonoBehaviour组件，实现自定义转换
+
+ConvertToEntity组件，或者 是 SubScene的一部分，
+ECS转换代码将转换GameObject
+任何一种情况下， Unity.Transforms 和 Unity.Hybrid.Render 提供的转换系统都将处理GameObject或
+Scene Asset 及其任何子 GameObject
+
+用ConvertToEntity转换GameObject和用SubScene转换 的区别
+ECS序列化并将它从转换的SubScene生成的实体数据保存到磁盘上
+可以在运行时，非常快速地加载 或 流式传输 此序列化数据
+ECS始终在运行时，将具有ConvertToEntity MonoBehaviours的GameObjects转换
+
+最佳实践：使用标准的MonoBehaviours进行创作，并使用IConvertGameObjectToEntity将这些创作组件的值
+应用于 IComponentData 结构 以供运行时使用。
+通常，最方便编写的数据布局不是运行时最有效的数据布局
+
+可以使用IConvertGameObjectToEntity来自定义SubScene中任何GameObject
+具有ConvertToEntity MonoBehaviour的GameObject或具有MonoBehaviour的GameObject的子代的自定义转换
+
+注意：：基于DOTS的应用程序的创作工作流是活跃开发的领域。大致轮廓以及到位，但是还会有许多变化
+```
+
+```c#
+// 生成创作组件
+// Unity可以自动为简单的运行时ECS组件生成创作组件
+// Unity生成创作组件时，可以将包含ECS组件的添加脚本直接添加到编辑器中的GameObject上。
+// 然后，使用检查器窗口设置组件的初始值
+
+// Unity自动生成MonoBehaviour类，该类包含公共字段，并提供一个Conversion方法
+// IComponentData
+[GenerateAuthoringComponent]
+public struct RotationSpeed_ForEach : IComponentData {
+    public float RadiansPerSecond;
+}
+
+// 1  单个C# 文件中，只有一个组件可以包含 GenerateAuthoringComponent
+//    并且不能有MonoBehaviour
+// 2  ECS仅 反映 公共字段，并且与组件中指定的名词相同
+// 3  ECS将IComponentData中的Entity类型的字段反映为它生成的
+//    MonoBehaviour中的GameObject类型的字段
+//    ECS将这些字段的GameObject或Prefab转换为引用的Prefab
+// 4  IComponentData的Entity类型的字段在生成MonoBehaviour中反映为GameObject类型的字段
+//    分配给这些字段的GameObject或Prefab将转换为参考的预制体
+```
+
+```c#
+// IBufferElementData
+[GenerateAuthoringComponent]
+public struct IntBufferElement : IBufferElementData
+{
+    public int Value;
+}
+// 将生成一个 名为 IntBufferElementAuthoring的类
+// 并公开一个 public List<int>
+// 转换过程中 此列表转换为 DynamicBuffer<IntBufferElement>然后添加到转换的实体中
+
+// 注意：IBufferElementData 对于包含两个或者更多字段的类型，无法自动生成创作组件
+// 无法为具有显示布局的类型自动生成创作组件
+```
+
+### ECS深潜 老旧 看看思想就行了
 
 https://rams3s.github.io/blog/2019-01-09-ecs-deep-dive/  
 
