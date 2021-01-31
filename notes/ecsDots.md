@@ -5663,6 +5663,971 @@ public struct IntBufferElement : IBufferElementData
 // 无法为具有显示布局的类型自动生成创作组件
 ```
 
+#### 转换工作流程
+
+```
+GameObjects 创作数据
+Entity Component 运行时数据
+创作数据到运行时数据 称为 conversion
+
+是创作ECS数据的首选方式
+是DOTS的基本组成部分 不是暂时的
+转换仅涉及数据，没有代码转换的过程
+
+流程：
+1 Unity编辑器创作数据
+2 从创作数据 转换到 运行时数据
+3 游戏 仅处理 运行时数据
+```
+
+```
+基本原则
+    创作数据
+        人类可理解可编辑
+        版本控制
+        团队合作组织
+    运行时数据针对性能优化
+        缓存效率
+        加载时间 流式传输
+        发行规模
+GameObject和Entity之间不需要 1 : 1 映射
+    一个 GameObject 可以变成 一组 Entity， 例如程序生成
+    多个 GameObject 可以聚合到单个 Entity， 例如LOD烘焙
+    某些 GameObject 在运行时无用， 例如关卡编辑标记
+```
+
+```
+关键概念
+    创作场景
+        包含GameObject的常规Unity场景，注定要转换为运行时数据
+    子场景
+        一个简单的GameObject组件，引用一个创作场景，并且加载该创作场景
+        或者在转换后的实体场景中流式传输
+    实体场景
+        转换创作场景的结果，由于实体场景是资产导入的输出，因此存储在 库 文件夹中
+        实体场景可以由多个部分组成，并且每个部分都可以独立加载
+    LiveConversion
+        当将创作场景作为GameObjects加载进行编辑时，每次更改都会出发对实体场景的更新，
+        使其看起来就像直接编辑实体场景一样，此过程称为LiveConversion
+    LiveConnection
+        Unity编辑器可以连接到最终在另一台计算机上运行的LiveLinkPlayer，框架的一部分，不需要特别注意
+    LiveLink
+        使 实时编辑 成为可能，与转换有关系。可能会导致ECS数据随时更改。
+        真正的挑战在于设计ECS系统时，要考虑这一点
+```
+
+```
+场景转换
+转换系统可以一次在整个场景上运行
+
+也支持更细 粒度 的方法， ConvertToEntity MonoBehaviour 和 GameObjectConversionUtility
+但应该避免使用这些方法，这些方法无法被拓展，势必被弃用。
+
+将创作场景转换为实体场景时，按顺序执行以下步骤
+    1 设置一个 conversion world 并在其中为场景中的每个GameObject创建一个 entity
+    2 收集外部引用 例如 预制体
+    3 在 destination world 中创建 与 conversion world中的实体相对应的主要实体
+    4 更新 main conversion system groups
+    5 Tag entity prefabs
+    6 为 hybrid component 创建 配套的GameObjects
+    7 创建 linked entity groups
+    8 更新 export system group，只用于Unity Tiny
+所有引用的预制体都是与常规创作的GameObjects同时转换的，而不是专用转换
+```
+
+```
+大规模性能
+转换工作流可以有效处理大型场景
+    1 在Unity编辑器中，可以将场景分解为子场景
+        可以在 运行时数据 和 创作数据 之间来回切换
+        这取决于必须处理场景的哪些部分
+    2 转换可以作为 asset database v2 导入，允许争取的依赖项跟踪
+        按需导入以及在后台进程中运行，以免 Editor 卡死
+    3 监视对 创作数据 的更改，以便仅转换需要更新的内容，称为 增量转换
+```
+
+```
+SubScene MonoBehaviour
+实体场景的转换通常是使用SubScene完成的，这种MonoBehaviour的作用很小
+引用创作场景，并触发转换和加载结果实体场景
+
+有一个切换开关可以控制实体场景的自动加载，还有一个按钮可以手动加载和卸载部分
+可以使用一个按钮强制场景的重新导入 恢复转换
+
+警告：强制重新导入会隐藏问题，该选中用于测试和调试目的
+如果重新导入不是自动发生的，则可能是因为缺少某些依赖项或版本信息
+
+更重要的是，可以在 创作 和 运行时 之间切换
+当引用场景的子场景处于编辑模式时，该场景的内容只能由Unity编辑器访问
+
+由于创作场景是普通的Unity场景，因此他们也可以像其他任何场景一样之间打开
+```
+
+```
+DOTS > Live Link Mode
+1 在编辑模式下进行实时转换
+    在Play模式下，SubScenes将始终在运行时场景部分中流式传输
+    不在Play模式下，转换后的entity的存在取决于 编辑模式下的实时转换 选项
+    和 创作表示形式（编辑模式下SubScene）的可用性
+
+    当SubScene处于编辑模式时，创作的GameObjects将显示在Unity编辑器的 Hierarchy 窗口
+    可用与之交互
+    当启用 Live Conversion in Edit Mode 编辑模式下的实时转换 时，SubScene引用的创作场景的运行时
+    表示形式才可用，并且由于创作表示形式中的每项更改都可能使运行时表示形式过时，因此每次发生以下情况
+    都会发生转换
+2 SceneView 编辑状态/实时游戏状态
+    编辑创作场景时，无论是在播放模式下还是在启用了 编辑模式下的实时转换 的编辑模式下
+    创作和运行时组件 均可用。 SceneView选项是两者之间的切换
+
+    如果选则 编辑状态， SceneView将显示创作组件。由于这些是常规的GameObject，因此可以用熟悉的方式
+    与它们进行交互
+    如果选则 实时游戏状态，场景视图将呈现无法从编辑器进行交互的运行时组件
+
+    在许多情况下，不可能在视觉上区分这两种情况，因为大多数创作组件都将转换为 外观相似的 运行时组件
+    请记住：在编辑模式下将 子场景 和 封闭子场景 混合使用时，即使选择了 编辑状态 ，封闭子场景 仍将
+    渲染 运行时组件，因为它们的创作组件不可用
+```
+
+```c#
+// Conversion systems 101
+// 转换过程 是一系列 组件系统，每个组件系统仅更新一次。
+// 与常规的DOTS系统之间的区别在于，转换系统跨越两个世界，从一个世界读取数据，向另一个世界写入数据。
+
+// 转换系统继承于 GameObjectConversionSystem 临时 转换世界 并从中运行，该过度世界应该被视为只读输入
+// 在更新期间，它们将自动写入目标世界，通过每个系统的 DstEntityManager 属性访问。
+
+// 下面的例子中：注意使用 GetPrimaryEntity 来访问目标世界中 与 所提供的创作组相 对应的实体
+// 向 ForEach lambda 添加一个实体参数将改为提供来自创作世界的实体，这是毫无意义的，
+// 因为转换系统不应修改转换世界，而只写入目标世界。
+
+// Authoring component
+class FooAuthoring : MonoBehaviour {
+    public float Value;
+}
+
+// Runtime component
+struct Foo : IComponentData {
+    public float SquaredValue;
+}
+
+// Conversion system, running in the conversion world
+class FooConversion : GameObjectConversionSystem {
+    protected override void OnUpdate() {
+        // Iterate over all authoring components of type FooAuthoring
+        Entities.ForEach((FooAuthoring input)=>{
+            // Get the destination world entity associated with the authoring GameObject
+            var entity = GetPrimaryEntity(input);
+
+            // Do the conversion and add the ECS component
+            DstEntityManager.AddComponentData(entity, new Foo
+            {
+                SquaredValue = input.Value * input.Value
+            });
+        });
+    }
+}
+// 在 GameObjectConversionSystem中，ForEach不会创建Job
+// 在没有Burst的情况下在主线程运行，因此可以不受限制地访问经典Unity
+// 这也是不用调用 Run 或者 Schedule的原因
+
+// 注意： 实体查询会寻找经典的Unity组件，是引用类型，不需要ref 或者in
+```
+
+```
+转换世界 Conversion World
+转换开始时，将在转换世界中为每个应处理的GameObject创建一个实体。
+就整个创作场景而言，通常是它包含的所有GameObject，
+以及来自所有引用的预制件的所有GameObject（递归）。
+预制件将在后面详细讨论。
+
+然后将那些GameObjects上的每个组件添加到相应的实体中。
+这是DOTS中很少使用的机制，因为使用经典的Unity组件无法扩展。
+这些组件是引用类型，来自ECS的每次访问均以低效的方式访问内存。
+
+这样做的唯一原因是允许转换系统使用实体查询访问创作组件。
+
+注意：
+禁用的 创作组件 不会添加到转换世界中，
+因此来自转换系统的查询将不会接收它们。
+非活动的GameObjects会变成禁用的实体，
+但是转换通常会发生。
+```
+
+```
+目标世界 Destination World
+对于转换世界中的每个创作GameObject，将在运行转换系统之前在目标世界中自动创建一个 primary entity
+与GameObject关联的实体可以通过 GameObjectConversionSystem.GetPrimaryEntity 访问
+
+目标世界中的每个实体都与转换世界中的GameObject相关联
+当编写GameObject更改时，必须更新所有由于其存在而创建的实体
+
+创建时，基于转换设置，目标时间中的实体包含以下组件的组合：
+Static 烘焙变换
+EntityGruid LiveLink
+Disabled 来自inactive的GameObject禁用
+SceneSection 用于流式传输部分
+
+更改该组件将破坏转换的逻辑，因此应该格外小心， SetArchetype在转换期间不应该使用
+
+GameObject的名称也将被复制为 实体名称 ， （仅用于调试，已从构建中删除）并且记录了
+GameObjects与实体之间的映射以进行错误报告
+
+在目标世界中直接创建新实体：
+通过CreateEntity，Instantiate等，将绕过该设置，并引发问题
+因此，当必须创建新实体时，则必须 GameObjectConversionSystem.CreateAdditionalEntity
+此功能还将通过将新实体与GameObject关联来更新依赖关系
+```
+
+```
+Conversion Systems Ordering
+可以对转换系统进行排序
+[UpdateBefore]
+[UpdateAfter]
+[UpdateInGroup]
+提供用于转换的默认系统组 按以下顺序：
+1 [GameObjectDeclareReferencedObjectsGroup] 在目标世界中创建实体之前
+2 [GameObjectBeforeConversionGroup] 早期转换组
+3 [GameObejctConversionGroup] 主转化组 当未明确指定任何组时，这是默认设置
+4 [GameObjectAfterConversionGroup] 后期转换组
+5 [GameObjectExportGroup] 仅适用于 Unity Tiny
+
+！！！ GetPrimaryEntity在转换过程中调用将返回 部分 构造的实体，该实体上的组件集将取决于系统顺序
+```
+
+```c#
+// 预制体
+// 实体预制体 不过是 带有 Prefab 标签 和 LinkedEntityGroup 的实体
+// Prefab标识 预制体，并使其对所有实体查询均不可见，但那些明确包含预制体的实体则不可见
+// LinkedEntityGroup 将一组实体链接在一起，因为实体预制体是复杂的装配体，等效于GameObject层次结构
+
+// 以下两个组件是等效的 一个在经典Unity中，一个在DOTS中
+// Authoring component
+public class PrefabReference : MonoBehaviour {
+    public GameObject Prefab;
+}
+// Runtime component
+public struct PrefabEntityReference : IComponentData {
+    public Entity Prefab;
+}
+
+// 默认情况下，转换工作流仅处理创作场景的实际内容，因此需要一种特定的机制来包括资产文件夹中的预制体
+// 这是 系统组GameObjectDeclareReferencedObjectsGroup 的目的，它在目标世界中创建主要实体之前运行，并
+// 提供了一种注册预制体进行转换的方法
+
+//示例：以下system将注册PrefabReference组件引用的所有预制体，这将导致为这些预制体中包含的所有GameObject
+// 创建主要实体
+[UpdateInGroup(typeof(GameObjectDeclareReferencedObjectsGroup))]
+class PrefabConverterDeclare : GameObjectConversionSystem {
+    protected override void OnUpdate() {
+        Entities.ForEach((PrefabReference prefabReference)=>{
+            DeclareReferencePrefab(prefabReference.Prefab);
+        })
+    }
+}
+
+// 请注意，只要声明的GameObjects集合不断增长，该系统就会进行更新
+// 这意味着，如果您有一个GameObject A（在创作场景中）引用了一个预制件B（在资产文件夹中），
+// 而其本身又引用了另一个C未引用任何东西的预制件（在资产文件夹中），则上面的系统将更新3次。
+
+// 第一次PrefabConverterDeclare运行时，ForEach会遍历集合{ A }，然后进行声明A.Prefab（这会使集合增加一个，变为{ A, B }）。
+// 第二次PrefabConverterDeclare运行时，ForEach会在集合上进行迭代，{ A, B }并声明A.Prefab和B.Prefab（这会使集合增加一个，变为{ A, B, C }）。
+// 第三次PrefabConverterDeclare运行，ForEach它将遍历该集合{ A, B, C }并声明A.Prefab并且B.Prefab（没有C.prefab，因此这不会增长该集合，而是保留{ A, B, C }）。
+// 由于自上次迭代以来集合没有增长，因此过程停止。
+
+// 在同一预制件上多次调用 DeclareReferencedPrefab 只会注册一次
+// 在不属于 GameObjectDeclareReferencedObjectsGroup 的系统上调用 DeclareReferencedPrefab 会报错引发异常
+// 在创建这些实体后运行的系统中，调用GetPrimaryEntity来检索声明的预制体，
+// 换句话说，在一个不是 GameObjectDeclareReferencedObjectsGroup 一部分的系统中
+
+// 示例：以下系统将转换上一个示例中声明的组件
+class PrefabConverter : GameObjectConversionSystem {
+    protected override void OnUpdate() {
+        Entities.ForEach((PrefabReference prefabReference)=>{
+            var entity = GetPrimaryEntity(prefabReference);
+            var prefab = GetPrimaryEntity(prefabReference.Prefab);
+
+            var component = new PrefabEntityReference { Prefab = prefab };
+            DstEntityManager.AddComponentData(entity, component);
+        });
+    }
+}
+
+// 重要说明：由于以下原因，无法在转换过程中实例化预制件
+//     预制件会与所有其他 GameObject 一起转换，这意味着 GetPrimaryEntity 将返回部分转换的预制件
+//     预制件要求 LinkedEntityGroup 仅在转换结束时初始化
+//     预制实例等效于在目标世界中手动创建实体，由于本文档前面所述的原因，它中断了转换
+```
+
+```c#
+// IConvertGameObjectToEntity接口
+// 编写自定义转换接口 可提供最大的灵活性，但是在优先考虑简单的情况下，IConvertGameObjectToEntity接口可以挂在MonoBehaviour上
+// 在主转换组GameObjectConversionGroup的更新期间  转换世界中实现 IConvertGameObjectToEntity 接口的所有创作组件都调用其Convert方法
+class FooAuthoring : MonoBehaviour, IConvertGameObjectToEntity {
+    public float Value;
+
+    public void Convert(Entity entity, EntityManager dstManager, 
+        GameObjectConversionSystem conversionSystem) {
+            dstManager.AddComponentData(entity, new Foo { SquaredValue = Value * Value });
+    }
+}
+
+// Runtime component
+struct Foo : IComponentData {
+    public float SquaredValue;
+}
+
+// 参数：
+//     Entity entity 与当前创作组件相对应的主要实体
+//     EntityManager dstManager 目标世界的实体管理器
+//     GameObjectConversionSystem conversionSystem 当前正在运行的转换系统，正在调用所有Convert方法
+
+// 注意：
+//     entity 生活在目标世界中，因此仅将其与 dstManager 一起使用才有意义
+//     dstManager 等效于conversionSystem.DstEntityManager并且仅出于方便目的而提供
+//     无法控制 Convert 调用顺序。如果需要该控件，则必须使用自定义转换系统。
+```
+
+```c#
+// IDeclareReferencedPrefabs接口
+// 等效于较早的 PrefabConverterDeclare 系统示例
+public class PrefabReference : MonoBehaviour, IDeclareReferencedPrefabs
+{
+    public GameObject Prefab;
+
+    public void DeclareReferencedPrefabs(List<GameObject> referencedPrefabs)
+    {
+        referencedPrefabs.Add(Prefab);
+    }
+}
+// 参数：
+//     List<GameObject> referencedPrefabs 将预制件添加到此列表将对其进行声明。
+//     此列表可能已经包含由实现的其他创作组件添加的预制件 IDeclareReferencedPrefabs 不要清除。
+
+// 注意：
+//     就像在系统中声明预制件时一样，此过程将以递归方式引用其他预制件来处理预制件：
+//     只要要转换的GameObject组不断增长，它就会一直运行，因此 DeclareReferencedPrefabs 在转换过程中可能多次调用该函数。
+//     将相同的预制件多次添加到列表中只会注册一次。
+
+// IDeclareReferencedPrefabs 和 IConvertGameObjectToEntity 常常 绑定在一个MonoBehaviour上
+```
+
+```c#
+// 生成 authoring component
+// 对于简单的运行时组件， GenerateAuthoringComponent 属性可用于请求为运行时组件自动创建 authoring component
+// 然后，可以将包含 运行时组件的 脚本直接添加到编辑器中的 GameObject
+
+// 示例：运行时组件将生成创作组件， DisallowMultipleComponent 是一个标准的Unity属性，并不特定用于DOTS
+// Runtime component
+[GenerateAuthoringComponent]
+public struct Foo : IComponentData
+{
+    public int ValueA;
+    public float ValueB;
+    public Entity PrefabC;
+    public Entity PrefabD;
+}
+
+// Authoring component (generated code retrieved using the DOTS Compiler Inspector)
+[DisallowMultipleComponent]
+internal class FooAuthoring : MonoBehaviour, IConvertGameObjectToEntity,
+    IDeclareReferencedPrefabs
+{
+    public int ValueA;
+    public float ValueB;
+    public GameObject PrefabC;
+    public GameObject PrefabD;
+
+    public void Convert(Entity entity, EntityManager dstManager,
+        GameObjectConversionSystem conversionSystem)
+    {
+        Foo componentData = default(Foo);
+        componentData.ValueA = ValueA;
+        componentData.ValueB = ValueB;
+        componentData.PrefabC = conversionSystem.GetPrimaryEntity(PrefabC);
+        componentData.PrefabD = conversionSystem.GetPrimaryEntity(PrefabD);
+        dstManager.AddComponentData(entity, componentData);
+    }
+
+    public void DeclareReferencedPrefabs(List<GameObject> referencedPrefabs)
+    {
+        GeneratedAuthoringComponentImplementation
+            .AddReferencedPrefab(referencedPrefabs, PrefabC);
+        GeneratedAuthoringComponentImplementation
+            .AddReferencedPrefab(referencedPrefabs, PrefabD);
+    }
+}
+
+// 限制：
+// 生成的创作类型将覆盖具有相同名称的现有类型
+//      例如，如果你有一个IComponentData命名的类型MyAwesomeComponent与[GenerateAuthoringComponent]属性，
+//      自己实现MyAwesomeComponentAuthoring将被覆盖产生的MyAwesomeComponentAuthoring
+// 单个C＃文件中只有一个组件可以具有生成的创作组件，并且C＃文件中不能包含另一个MonoBehaviour
+// 该文件不必遵循任何命名约定，即，不必以生成的创作组件命名。
+// ECS仅反映公共字段，并且与组件中指定的名称相同。
+// ECS将IComponentData中的Entity类型的字段反映为它生成的MonoBehaviour中的GameObject类型的字段。
+//      ECS会将您分配给这些字段的GameObjects或Prefabs转换为引用的Prefabs。
+// 无法为字段指定默认值。
+// 无法实现创作回调（例如OnValidate）
+
+
+// 可以实现 IBufferElementData
+// 示例：下面的运行时组件将在下面生成创作组件，其源BufferElementAuthoring位于实体包中
+// Runtime component
+[GenerateAuthoringComponent]
+public struct FooBuffer : IBufferElementData
+{
+    public int Value;
+}
+// Authoring component (generated code retrieved using ILSpy)
+internal class FooBufferAuthoring :
+    Unity.Entities.Hybrid.BufferElementAuthoring<FooBuffer, int>
+{
+}
+// IBufferElementData 对于包含2个或更多字段的类型，无法自动生成创作组件。
+// IBufferElementData 无法为具有显式布局的类型自动生成创作组件。
+```
+
+```
+asset pipeline v2 和 background importing
+
+场景转换可以在两种不同情况下发生：
+    打开子场景进行编辑时，每次更改时，转换都会在Unity编辑器进程中运行。
+    关闭子场景后，转换结果（实体场景）将作为资产加载。
+
+在第二种情况下，资产场景通过使用脚本化的导入器按需生成实体场景
+这种转换发生在后台运行的独立Unity流程中，我们称此流程为“资产工作者”
+注意：
+    导入实体场景是异步的，并且第一次导入（转换）场景可能会花费很长时间，
+        因为必须启动后台进程，一个编辑器实例
+        一旦启动，它将保持驻留状态，
+        随后的导入将更快。
+    异常，错误，警告，日志等将不会显示在Unity编辑器中。
+        转换日志将在检查器中显示每个子场景，并且可以在项目文件夹内“日志”文件夹中的磁盘上进行监视。
+        您会AssetImportWorker#.log在其中找到一个名为的文件，其中#有一个数字，该数字将在进程崩溃时每次递增，
+        并且必须重新启动。因此，如果一切顺利，应该只会看到AssetImportWorker0.log。
+    将调试器附加到Unity流程时，应注意每个流程将有一个子流程（如果自启动以来至少发生了一个实体场景导入），
+        这取决于要调试主流程还是资产导入流程。必须选择正确的一个。
+        为此，可以依赖进程名称，也可以依赖两个进程之间的关系：资产工作人员是子对象。
+    资产管道v2将按需导入资产，并检查依存关系以找出资产是否最新。
+        它还保留了先前导入的缓存，从而使切换目标非常有效。
+        但这也意味着，如果缺少依赖项，最终可能会导致资产过时。
+        这需要格外小心
+    由于资产管道保留了已导入资产及其依赖项的缓存，因此移回先前的配置可能会击中该缓存，
+        并且不会导致重新导入。因此，不要期望做和撤消相同的更改会导致重新导入。
+```
+
+```
+类型依赖
+实体场景为其引用的每种运行时组件类型均包含稳定的哈希。
+此哈希用于检测类型的任何结构更改，在这种情况下，它将触发实体场景的重新导入。
+这意味着对组件类型的更改将触发转换过程。
+```
+
+```c#
+// ConverterVersion
+
+// 对创作类型和转换系统的更改不会自动检测。
+// ConverterVersion属性可用于此目的，它必须用于转换系统或实现 IConvertGameObjectToEntity 的创作类型。
+
+// 包括：
+//     字符串标识符
+//     版本号
+
+// 对这两个中的任何一个进行更改都会影响依赖关系。
+//     字符串标识符的原因是为了防止合并问题，
+//     如果两个人在两个不同的开发分支中更改版本号，则很容易在合并时错过这一点，而忘记再次更改版本号。
+//     字符串标识符可用于强制合并冲突，只要更改版本的人不要忘记将标识符设置为唯一标识它们的东西。
+
+// 系统上
+public class SomeComponentAuthoring : MonoBehaviour
+{
+    public int SomeValue;
+}
+
+[ConverterVersion("Fabrice", 140)]
+public class SomeComponentConversion : GameObjectConversionSystem
+{
+    protected override void OnUpdate()
+    {
+        // ...
+    }
+}
+
+// 组件上
+[ConverterVersion("Fabrice", 140)]
+public class SomeComponentAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+{
+    public int SomeValue;
+
+    public void Convert(Entity entity, EntityManager dstManager,
+        GameObjectConversionSystem conversionSystem)
+    {
+        // ...
+    }
+}
+```
+
+#### LiveLink 没有Unity高版本，先不看 
+
+```
+2020.2以上才支持，要通过菜单启用
+DOTS / Live Link Mode / Live Conversion in EditMode
+
+启用后，打开的子场景中的所有对象都自动在编辑器中转换为 entity
+对这些开放子场景中的对象，所做的任何不可撤销的更改，都将导致子场景中
+受到影响的GameObject的重新转换。
+该重新转换的结果，与最后一个已知的转换结果进行比较，生成补丁。
+该补丁适用于编辑器世界，并发送给任何以及链接的LiveLink Player
+```
+
+#### TransformSystem
+
+```
+第一节 非分层变换 基本
+LocalToWorld float4x4 标识从本地空间到世界空间的转换
+它是规范的表示形式，并且是唯一的组件，可以依靠它在系统之间传递本地空间
+
+    某些DOTS功能可能依赖LocalToWorld的存在才能起作用
+    例如，RenderMesh组件依赖存在的LocalToWorld组件来渲染实例
+    如果仅存在LocalToWorld转换组件，则任何转换系统都不会写入或影响LocalToWorld数据
+    如果没有其他转换组件与同一实体相关联，则用户代码可以直接写入LocalToWorld以定义实例的转换
+
+所有转换系统和所有其他转换组件的目的是提供用于写入LocalToWorld的接口
+
+如果存在平移 float3
+旋转 quaternion
+缩放 float 组件的 任何组合 以及 LocalToWorld组件，则转换系统将组合这些组件并写入LocalToWorld
+
+TRSToLocalToWorldSystem
+
+具体：
+Translation
+Translation * Rotation
+Translation * Rotation * Scale
+Rotation
+Rotation * Scale
+Scale
+```
+
+```
+第二节 分层转换 基本
+LocalToParent float4x4 表示从本地空间到父级本地空间的转换
+
+    LocalToParent（float4x4）表示从本地空间到父级本地空间的转换。
+    父级（实体）引用父级的LocalToWorld。
+    如果没有其他转换系统定义为写入用户代码，则用户代码可以直接写入LocalToParent。
+
+如果存在以下组件：
+父级 LocalToWorld Translation Rotation Scale
+子级 LocalToWorld LocalToParent Parent
+
+TRSToLocalToWorldSystem
+    父级，LocalToWorld
+
+LocalToParentSystem
+    子级，LocalToWorld[Child] <= LocalToWorld[Parent] * LocalToParent[Child]
+
+父级要先算出矩阵
+
+当更改层次结构，拓扑，即：添加，删除，更改任何父级组件时，
+内部状态作为SystemStateComponentData
+添加为：
+    与 父实体ID 相关联的 子组件 ISystemStateBufferElementData
+    与 子实体ID 相关联的 PreviousParent组件 实体的 ISystemStateComponentData
+父级：LocalToWorld Translation Rotation Scale Child*
+子级：LocalToWorld LocalToParent Parnet PreviousParent*
+
+这些组件的添加，删除，更新 由 ParentSystem 处理，
+LocalToParent = Translation * Rotation * Scale
+```
+
+```
+第三节 默认转换 基本
+混合转换
+作为GameObjects的一部分的UnityEngine.Transform.MonoBehaviour，包含在子场景中，或者在具有 ConvertToEntity 的
+GameObjects上，具有默认转换为Transform系统组件的功能。
+可以在Unity.Transforms.Hybrid程序集的TransformConversion系统中找到该转换
+    1 与转换的GameObject相关联的实体具有静态组件，仅将LocalToWorld添加到生成的实体中。
+        因此，在静态实例的情况下，在运行时不会进行任何转换系统更新。
+    2 对于非静态实体，Translation组件将添加Transform.position值
+        Rotation组件将添加有Transform.rotation值
+        Transform.parent == null
+            对于非单位Transform.localScale，将为NonUniformScale组件添加Transform.localScale值。
+                如果Transform.parent！= null，但在要转换的（部分）层次结构的开头：
+            对于非单位Transform.lossyScale，将向NonUniformScale组件添加Transform.lossyScale值。
+                对于其他Transform.parent！= null的情况
+            父组件将与实体一起添加，该实体引用转换后的Transform.parent GameObject
+            将添加LocalToParent组件
+```
+
+```
+第四节 非分层变换 高级
+NonUniformScale float3 作为Scale的替代方法，用于指定每轴的比例
+注意：并非所有DOTS功能都完全支持非均匀缩放，要查看文档
+
+TRSToLocalToWorldSystem
+    NonUniformScale 替代 Scale， 如果都存在，用Scale
+
+RotationEulerSystem
+    Rotation <= RotationEulerXYZ
+    Rotation <= RotationEulerXZY
+    Rotation <= RotationEulerYXZ
+    Rotation <= RotationEulerYZX
+    Rotation <= RotationEulerXXY
+    Rotation <= RotationEulerZYX
+
+CompositeRotationSystem
+更复杂的旋转
+CompositeRotation float4x4 代替Rotation
+    CompositeRotation = RotationPivotTranslation * RotationPivot * Rotation * PostRotation * RotationPivot^-1
+
+如果RotationPivotTranslation float3
+    RotationPivot float3
+    Rotation quaternion
+    或 PostRotation quaternion
+    与 CompositeRotation 一起存在，则这些组件写入 CompositeRotation
+
+CompositeRotationSystem
+CompositeRotation <= RotationPivotTranslation
+CompositeRotation <= RotationPivotTranslation * RotationPivot * Rotation * RotationPivot^-1
+CompositeRotation <= RotationPivotTranslation * RotationPivot * Rotation * PostRotation * RotationPivot^-1
+CompositeRotation <= RotationPivotTranslation * RotationPivot * PostRotation * RotationPivot^-1
+CompositeRotation <= RotationPivotTranslation * Rotation
+CompositeRotation <= RotationPivotTranslation * Rotation * PostRotation
+CompositeRotation <= RotationPivotTranslation * PostRotation
+CompositeRotation <= RotationPivot * Rotation * RotationPivot^-1
+CompositeRotation <= RotationPivot * Rotation * PostRotation * RotationPivot^-1
+CompositeRotation <= PostRotation
+CompositeRotation <= Rotation
+CompositeRotation <= Rotation * PostRotation
+如果指定的RotationPivot不带任何Rotation，则PostRotation对CompositeRotation没有其他影响
+注意：由于Rotation被重新用作CompositeRotation的源，因此Rotation的替代数据接口仍然可用
+例如：
+    实体 LocalToWorld Translation CompositeRotation 
+        Rotation RotationPivotTranslation RotationPivot
+        PostRotation RotationEulerXYZ Scale
+    则：
+        1 [CompositeRotationSystem] Write CompositeRotation <= RotationPivotTranslation 
+                * RotationPivot * Rotation * PostRotation * RotationPivot^-1
+        2 [TRSToLocalToWorldSystem] Write LocalToWorld <= Translation * CompositeRotation * Scale
+
+用户代码可以将PostRotation组件直接作为四元数写入，但是，如果首选Euler接口，则每个旋转顺序都可以使用组件，
+这将导致写入PostRotation组件
+    [PostRotationEulerSystem] PostRotation <= PostRotationEulerXYZ
+    [PostRotationEulerSystem] PostRotation <= PostRotationEulerXZY
+    [PostRotationEulerSystem] PostRotation <= PostRotationEulerYXZ
+    [PostRotationEulerSystem] PostRotation <= PostRotationEulerYZX
+    [PostRotationEulerSystem] PostRotation <= PostRotationEulerZXY
+    [PostRotationEulerSystem] PostRotation <= PostRotationEulerZYX
+
+例如：
+    实体 LocalToWorld Translation CompositeRotation Rotation RotationPivotTranslation
+        RotationPivot RotationEulerXYZ PostRotation PostRotationEulerXYZ Scale
+    则：
+        1 [RotationEulerSystem] Write Rotation <= RotationEulerXYZ
+        2 [PostRotationEulerSystem] Write PostRotation <= PostRotationEulerXYZ
+        3 [CompositeRotationSystem] Write CompositeRotation <= RotationPivotTranslation 
+                * RotationPivot * Rotation * PostRotation * RotationPivot^-1
+        4 [TRSToLocalToWorldSystem] Write LocalToWorld <= Translation * CompositeRotation * Scale
+
+
+对于更复杂的Scale要求，可以使用CompositeScale（float4x4）组件替代Scale（或NonUniformScale）
+
+    TRSToLocalToWorldSystem
+    LocalToWorld <= Translation * Rotation * CompositeScale
+    LocalToWorld <= Rotation * CompositeScale
+    LocalToWorld <= CompositeScale
+    LocalToWorld <= Translation * CompositeRotation * CompositeScale
+    LocalToWorld <= CompositeRotation * CompositeScale
+
+CompositeScale = ScalePivotTranslation * ScalePivot * Scale * ScalePivot^-1
+CompositeScale = ScalePivotTranslation * ScalePivot * NonUniformScale * ScalePivot^-1
+
+如果同时存在ScalePivotTranslation（float3），ScalePivot（float3），Scale（float）组件
+    和CompositeScale组件的任何组合，则转换系统将组合这些组件并写入CompositeScale。
+
+或者，如果同时存在ScalePivotTranslation（float3），ScalePivot（float3），NonUniformScale（float3）组件
+    和CompositeScale组件的任意组合，则转换系统将组合这些组件并写入CompositeScale。
+
+    CompositeScaleSystem
+    CompositeScale <= ScalePivotTranslation
+    CompositeScale <= ScalePivotTranslation * ScalePivot * Scale * ScalePivot^-1
+    CompositeScale <= ScalePivotTranslation * Scale
+    CompositeScale <= ScalePivot * Scale * ScalePivot^-1
+    CompositeScale <= Scale
+    CompositeScale <= ScalePivotTranslation * ScalePivot * NonUniformScale * ScalePivot^-1
+    CompositeScale <= ScalePivotTranslation * Scale
+    CompositeScale <= ScalePivot * NonUniformScale * ScalePivot^-1
+    CompositeScale <= NonUniformScale
+
+如果指定ScalePivot且不使用Scale或Scale中的任何一个，则NonUniformScale都没有其他影响，
+    对CompositeScale也没有其他影响。
+
+例如：
+    实体  LocalToWorld Translation CompositeRotation Rotation RotationPivotTranslation
+        RotationPivot RotationEulerXYZ PostRotation PostRotationEulerXYZ
+        CompositeScale Scale ScalePivotTranslation ScalePivot
+    则：
+        1 [RotationEulerSystem] Write Rotation <= RotationEulerXYZ
+        2 [PostRotationEulerSystem] Write PostRotation <= PostRotationEulerXYZ
+        3 [CompositeScaleSystem] Write CompositeScale <= ScalePivotTranslation 
+                * ScalePivot * Scale * ScalePivot^-1
+        4 [CompositeRotationSystem] Write CompositeRotation <= RotationPivotTranslation 
+                * RotationPivot * Rotation * PostRotation * RotationPivot^-1
+        5 [TRSToLocalToWorldSystem] Write LocalToWorld <= Translation 
+                * CompositeRotation * CompositeScale
+```
+
+```
+第五节 非层次变换 高级
+
+高级分层转换组件规则很大程度上反映了非分层组件的用法
+    只是它们正在写入LocalToParent而不是LocalToWorld
+    分层转换所独有的主要附加组件是ParentScaleInverse
+
+例如：
+    父级 LocalToWorld Translation Rotation Scale Child*
+    子级 LocalToWorld LocalToParnet Parent PreviousParent*
+        Translation Rotation NonUniformScale
+    则
+        1 [TRSToLocalToWorldSystem] Parent: Write LocalToWorld
+                同 非层次转换 定义
+        2 [TRSToLocalToParentSystem] Child: Write LocalToParent <= Translation 
+                * Rotation * NonUniformScale
+        3 [LocalToParentSystem] Child: Write LocalToWorld <= 
+                LocalToWorld[Parent] * LocalToParent
+
+父级LocalToWorld乘以子级LocalToWorld，其中包括任何缩放比例
+    但是，如果首选删除父级比例，则可以使用 ParentScaleInverse
+
+    TRSToLocalToParentSystem
+    LocalToParent <= ParentScaleInverse
+    LocalToParent <= Translation * ParentScaleInverse
+    LocalToParent <= Translation * ParentScaleInverse * Rotation
+    LocalToParent <= Translation * ParentScaleInverse * Rotation * NonUniformScale
+    LocalToParent <= Translation * ParentScaleInverse * CompositeRotation
+    LocalToParent <= Translation * ParentScaleInverse * CompositeRotation * NonUniformScale
+    LocalToParent <= Translation * ParentScaleInverse * Rotation * Scale
+    LocalToParent <= Translation * ParentScaleInverse * CompositeRotation * Scale
+    LocalToParent <= Translation * ParentScaleInverse * Rotation * CompositeScale
+    LocalToParent <= Translation * ParentScaleInverse * CompositeRotation * CompositeScale
+    LocalToParent <= ParentScaleInverse * Rotation
+    LocalToParent <= ParentScaleInverse * Rotation * NonUniformScale
+    LocalToParent <= ParentScaleInverse * CompositeRotation * NonUniformScale
+    LocalToParent <= ParentScaleInverse * Rotation * Scale
+    LocalToParent <= ParentScaleInverse * CompositeRotation
+    LocalToParent <= ParentScaleInverse * CompositeRotation * Scale
+    LocalToParent <= ParentScaleInverse * Rotation * CompositeScale
+    LocalToParent <= ParentScaleInverse * CompositeRotation * CompositeScale
+
+如果存在任何显式分配的父比例尺值的逆，则将其写为 ParentScaleInverse
+    ParentScaleInverse <= CompositeScale[Parent]^-1
+    ParentScaleInverse <= Scale[Parent]^-1
+    ParentScaleInverse <= NonUniformScale[Parent]^-1
+
+如果LocalToWorld[parent]由用户直接编写，或者以其他方式没用明确使用缩放组件
+    的方式应用缩放，则不会将任何内容写入ParentScaleInverse
+应用该缩放比例将 逆 写到ParentScaleInverse是系统的责任。
+    在这种情况下，系统未更新ParentScaleInverse的结果是不确定的。
+
+例如：
+    父级 LocalToWorld Translation Rotation Scale Child*
+    子级 LocalToWorld LocalToParent Parent PreviousParnet* Translation
+            Rotation ParentScaleInverse
+    则
+        1 [TRSToLocalToWorldSystem] Parent: Write LocalToWorld
+                同 非层次转换 定义
+        2 [ParentScaleInverseSystem] Child: ParentScaleInverse <= Scale[Parent]^-1
+        3 [TRSToLocalToParentSystem] Child: Write LocalToParent <= Translation 
+            * ParentScaleInverse * Rotation
+        4 [LocalToParentSystem] Child: Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
+
+
+RotationEulerSystem Rotation使用Euler
+例如：
+    父级 LocalToWorld Translation Rotation Scale Child*
+    子级 LocalToWorld LocalToParnet Parent PreviousParent*
+        Translation Rotation RotationEulerXYZ
+    则
+        1 [TRSToLocalToWorldSystem] Parent: Write LocalToWorld
+                同 非层次转换 定义
+        2 [RotationEulerSystem] Child: Write Rotation <= RotationEulerXYZ
+        3 [TRSToLocalToParentSystem] Child: Write LocalToParent <= Translation * Rotation
+        4 [LocalToParentSystem] Child: Write LocalToWorld <= LocalToWorld[Parent] 
+                * LocalToParent
+
+TRSToLocalToParentSystem CompositeRotation 代替 Rotation
+如果指定的RotationPivot不带任何Rotation ，则PostRotation对
+CompositeRotation没用其他影响
+
+注意：由于旋转被重新用作 CompositeRotation 的源，因此旋转的替代数据接口仍然可用
+例如：
+    父级 LocalToWorld Translation Rotation Scale Child*
+    子级 LocalToWorld LocalToParent Parnet PreviousParent*
+            Translation CompositeRotation Rotation
+            RotationPivotTranslation RotationPivot
+            PostRotation RotationEulerXYZ Scale
+    则：
+        1 [TRSToLocalToWorldSystem] Parent: Write LocalToWorld
+                同 非层次转换 定义
+        2 [RotationEulerSystem] Child: Write Rotation <= RotationEulerXYZ
+        3 [CompositeRotationSystem] Child: Wirte CompositeRotation <= RotationPivotTranslation 
+                * RotationPivot * Rotation * PostRotation * RotationPivot^-1
+        4 [TRSToLocalToParentSystem] Child: Write LocalToParent <= Translation * CompositeRotation * Scale
+        5 [LocalToParentSystem] Child: Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
+
+如果使用Euler
+    有：
+        1 [TRSToLocalToWorldSystem] Parent: Write LocalToWorld
+                同 非层次转换 定义
+        2 [PostRotationEulerSystem] Child: Write PostRotation <= PostRotationEulerXYZ
+        3 [RotationEulerSystem] Child: Write Rotation <= RotationEulerXYZ
+        4 [CompositeRotationSystem] Child: Wirte CompositeRotation <= RotationPivotTranslation 
+                * RotationPivot * Rotation * PostRotation * RotationPivot^-1
+        5 [TRSToLocalToParentSystem] Child: Write LocalToParent <= Translation * CompositeRotation * Scale
+        6 [LocalToParentSystem] Child: Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
+
+如果使用ScalePivot
+    有：
+        1 [TRSToLocalToWorldSystem] Parent: Write LocalToWorld as defined above 
+                in "Non-hierarchical Transforms (Basic)"
+        2 [PostRotationEulerSystem] Child: Write PostRotation <= PostRotationEulerXYZ
+        3 [RotationEulerSystem] Child: Write Rotation <= RotationEulerXYZ
+        4 [CompositeRotationSystem] Child: Wirte CompositeRotation <= RotationPivotTranslation 
+                * RotationPivot * Rotation * PostRotation * RotationPivot^-1
+        5 [TRSToLocalToParentSystem] Child: Write LocalToParent <= Translation * CompositeRotation * Scale
+        6 [LocalToParentSystem] Child: Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
+
+
+        1 [TRSToLocalToWorldSystem] Parent: Write LocalToWorld as defined above 
+                in "Non-hierarchical Transforms (Basic)"
+        2 [PostRotationEulerSystem] Child: Write PostRotation <= PostRotationEulerXYZ
+        3 [RotationEulerSystem] Child: Write Rotation <= RotationEulerXYZ
+        4 [CompositeScaleSystem] Child: Write CompositeScale <= ScalePivotTranslation 
+                * ScalePivot * Scale * ScalePivot^-1
+        5 [CompositeRotationSystem] Child: Wirte CompositeRotation <= RotationPivotTranslation 
+                * RotationPivot * Rotation * PostRotation * RotationPivot^-1
+        6 [TRSToLocalToParentSystem] Child: Write LocalToParent <= Translation * CompositeRotation * Scale
+        7 [LocalToParentSystem] Child: Write LocalToWorld <= LocalToWorld[Parent] * LocalToParent
+```
+
+```c#
+// 第六节 自定义转换 高级
+
+// 覆盖转换组件  Overriding transform components
+// 定义了一个用户组件 UserComponent 并将其添加到 LocalToWorld WriteGroup 中
+[Serializable]
+[WriteGroup(typeof(LocalToWorld))]
+struct UserComponent : IComponentData {
+
+}
+
+// 覆盖转换组件 意味着 不可能有其他拓展
+// 用户定义的转换 是指定用户组件可用发生的唯一转换
+// 在 UserTransformSystem 中，使用默认查询方法来请求对 LocalToWorld 的写权限 
+public class UserTransformSystem : SystemBase {
+    protected override void OnUpdate() {
+        Entities
+            .ForEach(
+                (ref LocalToWorld localToWorld, in UserComponent userComponent)=>
+                {
+                    localToWorld.Value = ...//Assign localToWorld as needed for UserTransform
+                }
+            )
+            .ScheduleParallel();
+    }
+}
+
+//写入 LocalToWorld 的所有其他转换组件将被包含用户组件的转换系统忽略。
+// 例如：
+//     实体 LocalToWorld Translation Rotation Scale UserComponent
+//     则 
+//         1 [TRSToLocalToWorldSystem] Will not run on this Entity
+//         2 [UserTransformSystem] Will run on this Entity
+
+// 如果还有个 UserComponent 和 UserTransformSystem2，都尝试写入 LocalToWorld，
+// 可能导致意外行为
+// 在上下文中可能没事
+
+
+// 拓展转换组件 Extending transform components
+
+// 为了确保多个重写的变换组件可以以定义良好的方式进行交互，
+// 可以使用WriteGroup查询仅显式地匹配所请求的组件。
+
+// 例如
+[Serializable]
+[WriteGroup(typeof(LocalToWorld))]
+struct UserComponent : IComponentData {
+}
+
+public class UserTransformSystem : SystemBase {
+    protected override void OnUpdate() {
+        Entities
+            .WriteEntityQueryOptions(EntityQueryOptions.FilterWriteGroup)
+            .ForEach(
+                (ref LocalToWorld localToWorld, in UserComponent userComponent)=>
+                {
+                    localToWorld.Value = ...// Assign localToWorld as needed for UserTransform
+                }
+            )
+            .ScheduleParallel();
+    }
+}
+// UserTransformSystem 中的 m_Query仅与明确提到的组件匹配
+// 例如，以下与match匹配并包含在EntityQuery中
+// LocalToWorld UserComponent
+// 这不会
+// LocalToWorld Translation Rotation Scale UserComponent
+
+// 隐含的期望是，UserComponnet是要写入LocalToWorld的一组完全正交的要求
+// 因此，不应该存在同一WriteGroup中的其他未声明的组件
+// 但是，通过添加到查询中，UserComponent系统可能明确支持它们
+public class UserTransformExtensionSystem : SystemBase {
+    protected override void OnUpdate() {
+        Entities
+            .WithEntityQueryOptions(EntityQueryOptions.FilterWriteGroup)
+            .ForEach(
+                (   ref LocalToWorld localToWorld, 
+                    in UserComponent userComponent, 
+                    in Translation translation, 
+                    in Rotation rotation, 
+                    in Scale scale)=>
+                    {
+                        localToWorld.Value = ... // Assign localToWorld as needed for UserTransform
+                    }
+            ).ScheduleParallel();
+    }
+}
+// 同样 如果还有个 UserComponent2
+// 上面定义的 UserTransformExtensionSystem 将不匹配
+// 因为没 明确提到 UserComponent2
+// 它位于 LocalToWorld WriteGroup 中
+
+// 但是，可用创建一个明确的查询
+public class UserTransformComboSystem : SystemBase {
+    protected override void OnUpdate() {
+        Entities
+            .ForEach(
+                (ref LocalToWorld localToWorld,
+                in UserComponent userComponent,
+                in UserComponent userComponent2)=>{
+                    localToWorld.Value = ...// Assign localToWorld as needed for UserTransform
+                }
+            )
+            .ScheduleParallel();
+    }
+}
+
+// 然后是以下系统（或等效系统）：
+
+// UserTransformSystem（LocalToWorld FilterWriteGroup：UserComponent）
+// UserTransformSystem2（LocalToWorld FilterWriteGroup：UserComponent2）
+// UserTransformComboSystem（LocalToWorld FilterWriteGroup：UserComponent，UserComponent2）
+// 将全部并行运行，查询并在各自的组件原型上运行，并具有明确定义的行为。
+```
+
+
 ### ECS深潜 老旧 看看思想就行了
 
 https://rams3s.github.io/blog/2019-01-09-ecs-deep-dive/  
