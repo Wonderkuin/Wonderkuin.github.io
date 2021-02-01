@@ -6167,7 +6167,7 @@ public class SomeComponentAuthoring : MonoBehaviour, IConvertGameObjectToEntity
 }
 ```
 
-#### LiveLink 没有Unity高版本，先不看 
+#### LiveLink
 
 ```
 2020.2以上才支持，要通过菜单启用
@@ -6178,6 +6178,235 @@ DOTS / Live Link Mode / Live Conversion in EditMode
 受到影响的GameObject的重新转换。
 该重新转换的结果，与最后一个已知的转换结果进行比较，生成补丁。
 该补丁适用于编辑器世界，并发送给任何以及链接的LiveLink Player
+```
+
+```
+增量转换
+
+允许按比例编辑实体数据的关键功能是 增量转换
+只要GameObject发生更改，LiveLink代码就会自动检测到此更改
+并将GameObject标记为，要重新转换。这样可用确保仅转换实际更改的数据
+
+所有不可撤销的操作都将检测为更改，如果操作不可撤销，则不会检测到该操作
+由于转换可能会在编辑器的每个帧中运行，因此至关重要的是要确保要转换的对象尽可能小
+这引入了以下困难：在场景中增量转换对子集的结界必须与场景的完全重新转换匹配
+```
+
+```
+依赖管理
+
+对GameObject的更改只会触发该特定GameObject的重新转换
+GameObjects始终作为一个整体进行转换，因此任何更改都会重新转换整个GameObject
+某些情况下，转换代码可能取决于其他数据，如果转换代码不仅仅依赖于输入对象，
+则需要显示表达这些附加的依赖关系
+当前可用的依赖项：
+    取决于资产 意味着转换结果取决于资产的内容
+    取决于另一个GameObject 意味着转换结果取决于另一个GameObject的状态，例如组件的存在
+    取决于另一个GameObject上的组件 意味着转换结果取决于另一个GameObject的组件数据的状态
+```
+
+```c#
+// 取决于资产的内容
+
+// 当转换代码读取资产的内容时，需要声明对资产本身的依赖性
+// 这种依赖关系意味着，每当资产更改其内容时，都需要转换GameObject
+
+// 例如：假设有 使用网格周围边界框 的转换代码
+// 此边界框取决于网格资产的内容
+// 因此，只要网格更改，就需要重新转换GameObject
+public struct BoundsComponent : IComponentData {
+    public Bounds Bounds;
+}
+
+[ConverterVersion("unity", 1)]
+public class MeshBoundingBoxDependency : MonoBehaviour, IConvertGameObjectToEnrity {
+    public Mesh Mesh;
+    public void Convert(Entity entity, EntityManager dstManager,
+        GameObjectConversionSystem conversionSystem)
+    {
+        dstManager.AddComponnetData(entity, new BoundsComponnet{
+            Bounds = Mesh.bounds;
+        });
+        // Declare the dependency on the asset. Note the lack of a check for null.
+        conversionSystem.DeclareAssetDependency(gameObject, Mesh);
+    }
+}
+
+
+// 请注意，缺少 null 检查：
+// 所有用于声明依赖项的方法都正确处理 null 的情况，并且必须自己不执行此检查。
+// Unity 将 UnityEngine.Object 类型的比较运算符覆盖为在对象被销毁时也等于 null。
+// 即使对象可能被破坏，我们仍然可以从中提取识别数据。
+// 这对于正确处理可能删除和以后还原的对象的依赖关系（例如，撤消对象的删除）至关重要。
+
+// 你并不需要声明的依赖，如果你只是引用的资产。
+// 参考是稳定的，可以自动跟踪。
+// 例如，如果您的代码仅存储对网格的引用，则无需声明依赖项：
+public class MeshComponnet : ICompnentData {
+    public Mesh Mesh;
+}
+
+[ConverterVersion("unity", 1)]
+public class MeshReference : MonoBehaviour, IConvertGameObjectToEntity {
+    public Mesh Mesh;
+
+    public void Convert(Entity entity, EntityManager dstManager,
+        GameObjectConversionSystem conversionSystem)
+    {
+        dstManager.AddComponentData(entity, new MeshComponent{
+            Mesh = Mesh
+        });
+        // No need to declare a dependency here, we're merely referencing an asset.
+    }
+}
+```
+
+```c#
+// 取决于另一个GameObject
+
+// 依赖GameObject的常规属性
+// 例如，名称，是否启用或该GameObject上是否存在组件
+// 时，需要声明对另一个GameObject的依赖关系
+public struct NameComponent : IComponentData {
+    public Unity.Collections.FixedString32 Name;
+}
+
+[ConverterVersion("unity", 1)]
+public class NameFromGameObject : MonoBehaviour, IConvertGameObjectToEntity {
+    public GameObject Other;
+
+    public void Convert(Entity entity, EntityManager dstManager,
+        GameObjectConversionSystem conversionSystem)
+    {
+        dstManager.AddComponentData(entity, new NameComponent {
+            Name = Other.name
+        });
+        // Note the lack of a null check
+        conversionSystem.DeclareDependency(gameObject, Other);
+    }
+}
+
+// 当依赖GameObject上的组件的内容时，必须改为声明对该组件的依赖
+
+// 取决于组件的数据
+
+// 转换代码可能还依赖于此或此游戏对象上的组件数据。
+// 这预期是最常见的依赖关系。
+// 例如，您的转化代码可能依赖于可能存储在其他 GameObject 上的MeshFilter，
+// 也可能不存储在其他 GameObject 上。
+[ConverterVersion("unity", 1)]
+public class MeshFromOtherComponent : MonoBehaviour, IConvertGameObjectToEntity {
+    public MeshFilter MeshFilter;
+
+    public void Convert(Entity entity, EntityManager dstManager,
+        GameObjectConversionSystem conversionSystem)
+    {
+        dstManager.AddComponentData(entity, new MeshComponent {
+            Mesh = MeshFilter.sharedMesh
+        });
+        // Note the lack of a null check
+        conversionSystem.DeclareDependency(gameObject, MeshFilter);
+    }
+}
+
+// Transform
+
+// 特定于Transform组件的依赖关系是强制性的：
+// 尽管GameObjects本身是转换的最小单位，但有些代码在组件级别上依赖于此依赖关系信息。
+// Transform组件是分层的，对一个转换组件的更改实际上会更改整个层次。
+// 有一个特殊的代码路径专门用于处理这种情况，因为在大型层次结构中移动并不能依赖于每帧重新转换整个层次结构。
+// 而是直接对转换后的实体上的转换数据进行修补，并且仅转换其转换结果实际上取决于转换数据的GameObject
+// （例如，转换结果取决于对象的旋转或场景中对象的特定位置）。
+public struct Offset : IComponentData {
+    public Unity.Mathematics.float3 Value;
+}
+
+[ConverterVersion("unity", 1)]
+public class ReadFromOwnTransform : MonoBehaviour, IConvertGameObjectToEntity {
+    public void Convert(Entity entity, EntityManager dstManager,
+        GameObjectConversionSystem conversionSystem)
+    {
+        dstManager.AddComponentData(entity, new Offset {
+            Value = transform.position
+        });
+
+        // We need to explicitly declare a dependency on the transform data,
+        // even when it is on the same object.
+        conversionSystem.DeclareDependency(gameObject, transform);
+    }
+}
+
+// 应当谨慎使用对Transform数据的依赖性，因为它们存在使大型场景编辑变慢的危险。
+// 这是唯一需要在同一GameObject上的组件上声明引用的情况。
+// 当您存储对GameObject而不是组件的引用并使用该引用获取对组件的引用时，
+// 还需要声明对GameObject本身的依赖关系：
+[ConverterVersion("unity", 1)]
+public class ReadFromOtherMeshFilter : MonoBehaviour, IConvertGameObjectToEntity {
+    public GameObject Other;
+
+    public void Convert(Entity entity, EntityManager dstManager,
+        GameObjectConversionSystem conversionSystem)
+    {
+        if (Other != null) {
+            var meshFilter = Other.GetComponent<MeshFilter>();
+            dstManager.AddComponentData(entity, new MeshComponent {
+                Mesh = meshFilter.sharedMesh
+            });
+
+            // In this case, we need a null-check: meshFilter can only be
+            // accessed when Other is not null.
+            // It would be simpler to expose a reference to a Meshfilter on this
+            // MonoBehaviour.
+            conversionSystem.DeclareDependency(gameObject, meshFilter);
+        }
+
+        // Note the lack of a null-check
+        conversionSystem.DeclareDependency(gameObject, Other);
+    }
+}
+
+// 调试增量转换失败
+
+// 在场景中增量重新转换对象子集的结果必须与逐位完全转换的结果相匹配。
+// 这是一个硬性要求。验证此要求是一个挑战。
+// 为此，您可以使用DOTS/Live Link Mode/Debug Incremental Conversion。
+// 每次增量转换后，这将进行一次完整转换并比较结果。
+// 如果两个转换结果之间有任何差异，它将打印出差异摘要。
+
+// 两次转换之间不匹配的最常见原因是缺少相关性。
+// 当您缺少依赖项时，对GameObject或资产的更改将不会正确地重新转换
+// 其转换结果取决于该GameObject或资产的所有GameObject。
+
+
+// 已知的问题
+
+// 周围存在已知问题GetPrimaryEntity。
+// 从entity package的0.17版本开始，没有办法表达对GameObject存在的依赖，
+// 并且GetPrimaryEntity没有注册这种依赖。
+// 因此，以下内容演示了如何正确获取对另一个实体的引用：
+public struct EntityReference : IComponentData {
+    public Entity Entity;
+}
+
+[ConverterVersion("unity", 1)]
+public class GetEntityReference : MonoBehaviour, IConvertGameObjectToEntity {
+    public GameObject Other;
+
+    public void Convert(Entity entity, EntityManager dstManager,
+        GameObjectConversionSystem conversionSystem)
+    {
+        dstManager.AddComponentData(entity, new EntityReference {
+            Entity = conversionSystem.GetPrimaryEntity(Other)
+        });
+
+        // This line is required right now, unfortunately.
+        // Note the lack of a null-check.
+        conversionSystem.DeclareDependency(gameObject, Other);
+    }
+}
+// 如果不存在在最后一行注册的依赖项，则您可能会陷入无效的转换状态：
+// 具体来说，删除由引用的GameObjectOther并撤消该删除操作
+//   不会重新转换您的GameObject并导致无效的Entity引用。
 ```
 
 #### TransformSystem
@@ -6627,6 +6856,74 @@ public class UserTransformComboSystem : SystemBase {
 // 将全部并行运行，查询并在各自的组件原型上运行，并具有明确定义的行为。
 ```
 
+#### 常见模式
+
+```c#
+// 从Entities.ForEach调用静态方法
+
+// 此模式可帮助您在多个地方重用功能。
+// 它还可以帮助简化复杂系统的结构，并使代码更具可读性。
+
+// 您可以将静态方法用作ForEach lambda函数，如以下示例所示。
+// 称为Burst的静态函数将被Burst编译（如果该函数与Burst不兼容，
+// 则将.WithoutBurst（）添加到Entities.ForEach构造中）。
+public class RotationSpeedSystem_ForEach : SystemBase
+{
+    protected override void OnUpdate()
+    {
+        float deltaTime = Time.DeltaTime;
+        Entities
+            .WithName("RotationSpeedSystem_ForEach")
+            .ForEach((ref Rotation rotation, in RotationSpeed_ForEach rotationSpeed) 
+                => DoRotation(ref rotation, rotationSpeed.RadiansPerSecond * deltaTime))
+            .ScheduleParallel();
+    }
+
+    static void DoRotation(ref Rotation rotation, float amount)
+    {
+        rotation.Value = math.mul(
+            math.normalize(rotation.Value), 
+            quaternion.AxisAngle(math.up(), amount));
+    }
+}
+
+
+
+// 将数据和方法封装为捕获的值类型
+
+// 此模式可帮助您组织数据并将它们一起工作到一个单元中。
+
+// 您可以定义一个结构，该结构声明数据的本地字段以及Entities.ForEach调用的方法。
+// 在系统OnUpdate（）函数中，可以将结构的实例创建为局部变量，然后按以下示例所示调用该函数：
+public class RotationSpeedSystem_ForEach : SystemBase
+{
+    struct RotateData
+    {
+        float3 m_Direction;
+        float m_DeltaTime;
+        float m_Speed;
+
+        public RotateData(float3 direction, float deltaTime, float speed) 
+            => (m_Direction, m_DeltaTime, m_Speed) = (direction, deltaTime, speed);
+        public void DoWork(ref Rotation rotation) 
+            => rotation.Value = math.mul(math.normalize(rotation.Value), 
+                quaternion.AxisAngle(m_Direction, m_Speed * m_DeltaTime));
+    }
+
+    protected override void OnUpdate()
+    {
+        var rotateUp = new RotateData(math.up(), Time.DeltaTime, 3.0f);
+        Entities.ForEach((ref Rotation rotation) 
+            => rotateUp.DoWork(ref rotation))
+            .ScheduleParallel();
+    }
+}
+
+// 此模式将数据复制到您的作业结构中（如果与.Run一起使用，则将其备份）。
+// 如果使用非常大的作业结构来执行此操作，由于结构复制，可能会产生一些性能开销。
+// 在这种情况下，这可能表明您的工作应分为多个较小的工作。
+```
+
 
 ### ECS深潜 老旧 看看思想就行了
 
@@ -6860,6 +7157,810 @@ public class RotationSpeedSystem : JobComponentSystem {
 }
 
 也可以使用遍历作业中的块 IJobChunk
+```
+
+### Burst
+
+```c#
+// Burst的主要目的是与Job系统一起有效地工作。
+// 使用[BurstCompile]属性装饰 Job结构 来开始在代码中使用Burst编译器 
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
+using UnityEngine;
+
+public class MyBurst2Behavior : MonoBehaviour
+{
+    void Start()
+    {
+        var input = new NativeArray<float>(10, Allocator.Persistent);
+        var output = new NativeArray<float>(1, Allocator.Persistent);
+        for (int i = 0; i < input.Length; i++)
+            input[i] = 1.0f * i;
+
+        var job = new MyJob
+        {
+            Input = input,
+            Output = output
+        };
+        job.Schedule().Complete();
+
+        Debug.Log("The result of the sum is: " + output[0]);
+        input.Dispose();
+        output.Dispose();
+    }
+
+    // Using BurstCompile to compile a Job with Burst
+    // Set CompileSynchronously to true to make sure that the method will not be compiled asynchronously
+    // but on the first schedule
+    [BurstCompile(CompileSynchronously = true)]
+    private struct MyJob : IJob
+    {
+        [ReadOnly]
+        public NativeArray<float> Input;
+
+        [WriteOnly]
+        public NativeArray<float> Output;
+
+        public void Execute()
+        {
+            float result = 0.0f;
+            for (int i = 0; i < Input.Length; i++)
+            {
+                result += Input[i];
+            }
+            Output[0] = result;
+        }
+    }
+}
+// 默认情况下 JIT 异步编译作业，
+// 使用"CompileSynchronously = true"选项，以确保在第一个Schedule上编译该方法
+// 通常，应使用异步编译
+```
+
+```
+菜单介绍
+
+启用编译：
+    选中时，burst将编译标记有属性的Jobs和Burst自定义委托[BurstCompile]。默认为选中状态。
+启用安全检查：
+    子菜单中有三个选项：
+        关
+            禁用所有Burst作业/功能指针的安全检查。
+            这是一个危险的设置，仅当您希望从编辑器中捕获更真实的分析结果时才应使用。
+            重新加载Unity Editor总是会将其重置为On。
+        On
+            Burst启用对使用收集容器的代码（例如NativeArray<T>）的安全检查。
+            检查包括作业数据依赖性和容器索引超出范围。这是默认值。
+        强制执行
+            强制安全检查，即使对于具有DisableSafetyChecks = true的作业/功能指针也是如此
+            在报告任何Burst错误之前，应设置此选项以排除安全检查可能捕获的任何问题。
+同步编译：
+    选中后，Burst将同步编译-请参阅[BurstCompile]options。默认为未选中。
+本机调试模式编译：
+    选中该选项后，Burst将禁用对所有已编译代码的优化，以使其更易于通过本机调试器进行调试-请参阅本机调试。默认为未选中。
+显示时间：
+    选中该选项后，Burst会在编辑器中记录JIT编译作业所需的时间。默认为未选中。
+打开检查器...：
+    打开“Burst Inspector”窗口。
+
+```
+
+```
+Burst Inspector
+
+显示项目中 所有 job 和 其他 burst编译目标
+允许查看所有可编译的 job，还可以检查生成的中间和本机汇编代码
+
+查看反汇编 略
+```
+```
+JIT AOT
+
+PlayMode时，Burst用JIT方式工作
+默认是异步进行的
+
+构建项目，使用AOT
+需要对应平台的工具，类似IL2CPP
+```
+
+```
+打包平台设置
+
+IOS以外，会生成动态库
+Data/Plugins/lib_burst_generated.dll
+IOS生成静态库
+
+AOT编译的设置通过
+Project Settings
+    Burst AOT Settings
+
+目标平台：
+    显示当前的桌面平台-可以通过Unity Build Settings ..对话框进行更改。
+启用Burst编译：
+    完全打开/关闭当前所选平台的burst。
+启用优化：
+    打开/关闭burst优化。
+启用安全检查：
+    打开/关闭burst安全检查。
+强制调试信息：
+    强制Burst生成调试信息（即使在Standalone Player版本中也是如此）。
+    用于调试，别当成发布版本
+使用Platform SDK Linker：
+    禁用交叉编译支持（仅适用于Windows / macOS / Linux）（请参阅Burst AOT要求）。
+
+目标32位CPU体系结构：
+    允许您指定32位构建所支持的CPU体系结构（在支持时显示）。默认为SSE2和SSE4。
+目标64位CPU体系结构：
+    允许您指定64位构建所支持的CPU体系结构（在支持时显示）。默认为SSE2和AVX2。
+
+当前仅 Windows macOS Linux 支持 CPU体系结构
+
+可以给每个平台单独设置 Burst AOT，选项是按平台保存的
+```
+
+```
+禁用交叉编译时，Burst需要特定平台的编译工具
+
+略
+```
+
+### Universal Render Pipeline
+
+#### 渲染管线概念
+
+##### URP Asset
+
+```
+继承自 RenderPipelineAsset
+
+General 核心部分
+    Depth Texture 深度纹理
+        _CameraDepthTexture
+        默认情况下对场景中所有摄像机使用
+    Opaque Texture 不透明纹理
+        _CameraOpaqueTexture
+        为场景中所有摄像机创建默认设置
+        像是内置渲染管道的GrabPass
+        不透明纹理在 URP 渲染任何透明网格之前提供场景的快照。
+        可以在透明着色器中使用此效果来创建磨砂玻璃、水折射或热浪等效果。
+    Opaque Downsampling 不透明的下采样
+        将不透明纹理上的采样模式设置为以下之一：
+        无：以与相机相同的分辨率生成不透明通道的副本。
+        2x Bilinear：使用双线性滤波生成半分辨率图像。
+        4x Box：使用框过滤生成四分之一分辨率的图像。这将产生柔和模糊的副本。
+        4x Bilinear：使用双线性滤波产生四分之一分辨率的图像。
+    Terrain Holes 
+        如果禁用此选项，则在为Unity Player进行构建时，
+        URP会删除所有Terrain Hole Shader变体，这会减少构建时间。
+
+Quality 可以在低端硬件上提高性能，或在高端硬件上提高图形外观
+            提示：如果要为不同的硬件设置不同的设置，
+            则可以在多个Universal Render Pipeline资源中配置这些设置，
+            然后根据需要将它们切换出去。
+    HDR
+        场景中的每个摄像机都可以在高动态范围中进行渲染
+        使用HDR，图像的最亮部分可以大于1。
+        光强度范围更广，照明看起来更加真实
+        即使在明亮的光线下，仍然可以看到细节并减少饱和度
+        如果想要 广泛的照明 或 bloom效果，这非常有用
+        如果定位于低端硬件，则可以禁用此选项以跳过HDR计算
+    MSAA 多样本抗锯齿
+        Multi Sample Anti-aliasing
+        柔化几何图形的边缘，因此不会出现锯齿或闪烁
+        在下拉菜单中，选择每个像素要使用多少个样本：2x，4x或8x
+        想跳过MSAA计算，或者在2D游戏中不需要它们，请选择禁用
+    Render Scale
+        缩放渲染目标分辨率（而不是当前设备的分辨率）
+        当出于性能原因要以较小的分辨率进行渲染时，
+        或在进行大型渲染以提高质量时，请使用
+        只会缩放游戏渲染。UI渲染保留为设备的原始分辨率
+
+Lighting 这些设置会影响场景中的灯光。
+            如果禁用其中一些设置，则会从Shader变量中删除相关的关键字。
+            如果确定某些设置肯定不会在游戏或应用中使用，
+            则可以禁用它们以提高性能并减少构建时间。
+    Main Light
+        影响场景中的定向光，可指定Sun Source
+        如果没指定Sun Source，URP会将场景中最亮的定向光视为主光源
+        可以选择 Pixel Lighting 和 None
+        如果选了 None，URP不会渲染主光源
+    Cast Shadows 投射阴影
+        选中此框可使主光源在场景中投射阴影
+    Shadow Resolution 阴影分辨率
+        这可控制主光源的阴影贴图纹理的大小。
+        高分辨率提供更清晰，更详细的阴影。
+        如果内存或渲染时间有问题，请尝试使用较低的分辨率。
+    Additional Lights 附加灯
+        可以选择使用其他光源来补充您的主光源
+        Per Vertex 每个顶点
+        Per Pixel 每个像素
+        Disabled 禁用
+    Per Object Limit 每个对象限制
+        此滑块设置了可以影响每个GameObject的附加灯光数量的限制
+    Cast Shadows 投射阴影
+        选中此框可使其他灯光在场景中投射阴影
+    Shadow Resolution 阴影分辨率	
+        这可以控制为附加光投射方向阴影的纹理的大小。
+        这是一个精灵地图集，最多可容纳16个阴影贴图。
+        高分辨率提供更清晰，更详细的阴影。
+        如果内存或渲染时间有问题，请尝试使用较低的分辨率。
+
+Shadows 配置阴影的外观和行为，在视觉质量和性能之间找到平衡
+    Max Distance 最大距离
+        距Unity渲染阴影的Camera的最大距离。
+        Unity渲染阴影的距离不会超过此距离。
+        注意：此属性以公制单位为单位，
+        不管“Working Unit”属性中的值如何。
+    Working Unit 工作单位
+        Unity测量阴影级联距离的单位。
+    Cascade Count 级联计数
+        shadow cascades 阴影级联 的数量
+        使用阴影级联，您可以避免靠近相机的粗糙阴影，并保持较低的阴影分辨率
+        级联数目的增加会降低性能
+        Split 1     级联1结束且级联2开始的距离
+        Split 2     级联2结束且级联3开始的距离
+        Split 3     级联3结束且级联4开始的距离
+    Depth Bias 深度偏差
+        使用此设置减少 阴影痤疮
+    Normal Bias 正常偏见
+        使用此设置减少 阴影痤疮
+    Soft Shadows 软阴影
+        选中此复选框可以对阴影贴图进行额外处理，以使它们看起来更平滑。
+        启用后，Unity使用以下阴影贴图过滤方法
+        Desktop platforms: 5x5 tent filter
+        mobile platforms: 4 tap filter.
+        性能影响：高。
+        禁用此选项后，Unity将使用默认硬件过滤对阴影贴图进行一次采样
+
+Post-processing 后处理 微调全局后处理设置
+    Grading Mode 分级模式
+        High Dynamic Rang 高动态范围
+            此模式最适合与电影制作工作流程类似的高精度分级。
+            Unity在色调映射之前应用颜色分级
+        Low Dynamic Range 低动态范围
+            此模式遵循更经典的工作流程。
+            色调映射后，Unity会应用有限范围的颜色分级。
+    LUT Size LUT尺寸
+        设置内部和外部的大小 查找纹理（LUT）通用渲染管线用于颜色分级的图形。
+        较大的大小可提供更高的精度，但可能会降低性能和内存使用成本。
+        无法混合和匹配LUT尺寸，因此请在开始颜色分级过程之前确定尺寸。
+        默认值32提供了速度和质量的良好平衡。
+
+Advanced 高级 微调较少更改的设置，影响更深的渲染功能和Shader组合
+    SRP Batcher
+        选中此框以启用SRP Batcher。
+        如果您有许多使用相同着色器的不同材质，这将很有用。
+        SRP Batcher是一个内部循环，可在不影响GPU性能的情况下加快CPU渲染速度。
+        当您使用SRP Batcher时，它将替换SRP呈现代码内部循环。
+    Dynamic Batching 动态批次
+        启用 动态批次，以使渲染管道自动批处理共享同一Material的小型动态对象。
+        这对于不支持GPU实例化的平台和图形API很有用。
+        如果目标硬件确实支持GPU实例化，请禁用
+        您可以在运行时更改此设置。
+    Mixed Lighting 混合照明
+        启用 混合照明 ，告诉管道在构建中包含混合照明着色器变体
+    Debug Level
+        Disabled：禁用调试。这是默认值
+        Profiling：使渲染管道提供详细的信息标签，可以在FrameDebugger中看到该标签
+    Shader Variant Log Level
+        在Unity完成构建时显示的“ Shader Stripping”和“ Shader Variants”的信息级别
+        Disabled
+            Unity不记录任何内容
+        Only Universal
+            Unity记录所有URP着色器
+        全部
+            Unity记录构建中所有着色器的信息
+
+Adaptive Performance 适应性表现    如果项目中安装了Adaptive Performance软件包，则此部分可用
+    Use Adaptive Performance
+        启用“自适应性能”功能，该功能可在运行时调整渲染质量
+```
+
+##### Forward Renderer
+
+```
+选择一个URP资产
+在 General -> Renderer List 下，默认为：
+/Assets/Settings/ForwardRenderer.asset
+
+Forward Renderer
+    Post Process Data 后期处理数据
+        资源包含渲染器用于后处理的着色器和纹理的引用。
+        注意：此属性用于高级定制用例。
+Filtering
+    Opaque Layer Mask 不透明层掩码
+        选择此渲染器绘制的不透明图层
+    Transparent Layer Mask 透明图层掩码
+        选择此渲染器绘制的透明图层
+Shadows
+    Transparent Receive Shadows
+        启用此选项后，Unity会在透明对象上绘制阴影
+Overrides
+    Stencil 模板
+        选中后，渲染器将处理模板缓冲区值
+            Value
+            Compare Function
+                Pass
+                Fail
+            Z Fail
+Renderer Features 渲染器功能
+    本部分包含分配给所选渲染器的渲染器功能列表
+```
+
+##### URP Renderer Feature
+
+```
+URP渲染器功能
+
+Renderer Feature 是一项资产，可以向URP渲染器添加额外的渲染通道并配置其行为
+URP包含称为Render Objects的预构建Renderer功能
+
+Render Objects Renderer Feature
+属性：
+New Render Objects
+    Name
+        功能名称
+    Event Unity
+        执行此渲染器功能时，URP队列中的事件
+    Filters
+        允许您配置此渲染器功能渲染哪些对象的设置
+            Queue
+                选择特征是渲染不透明对象还是透明对象
+            Layer Mask
+                渲染器功能从您在此属性中选择的图层中渲染对象
+    Pass Names
+        如果着色器中的“LightMode传递”具有“传递”标签，
+        则此“渲染器功能”仅处理“LightMode传递标签”的值
+        等于“传递名称”属性中值之一的着色器
+    Overrides
+        使用此渲染器功能进行渲染时，本节中的设置可让您配置某些属性的替代
+            Material
+                渲染对象时，Unity会使用该材质替换分配给它的材质
+            Depth
+                选择此选项可以指定此渲染器功能如何影响或使用深度缓冲区。
+                此选项包含以下各项：
+                写入深度：
+                    此选项定义渲染对象时渲染器功能是否更新深度缓冲区。
+                深度测试：
+                    确定此渲染器功能何时渲染给定对象的像素的条件
+            Stencil
+                选中此复选框后，渲染器将处理模板缓冲区值
+            Camera
+                选择此选项可让您覆盖以下“摄影机”属性：
+                视场：
+                    渲染对象时，“渲染器功能”使用此“视场”而不是在“摄影机”上指定的值。
+                位置偏移：
+                    渲染对象时，“渲染器功能”将其移动此偏移量。
+                恢复：
+                    选中此选项，在此渲染器功能中执行渲染过程后，渲染器功能将还原原始相机矩阵。
+```
+
+```
+如何添加 渲染器功能
+1 在 Project 窗口，选择一个 Renderer
+    选一个 ForwardRenderer
+    在 Inspector 窗口 显示了 Renderer 的 属性
+
+2 在 Inspector 窗口，选中 Add Renderer Feature
+    列表里面有两个选择
+        Screen Space Ambient Occlusion
+        Render Objects Experimental
+    选中，Unity会添加渲染器功能
+    在Project窗口中， ForwardRenderer多了子对象
+```
+
+##### 通用渲染管线中的渲染
+
+```
+URP使用以下方式渲染场景
+    Renderer 渲染器
+        Forward Renderer
+        2D Renderer
+    Shading models for shaders shipped with URP
+        着色模型
+    Camera
+    URP Asset
+        资产
+
+在 Forward Renderer 中，URP实现了一个渲染循环，告诉Unity如何渲染
+
+Rendering Loop
+        BeginFrameRendering
+    Camera Loop
+        BeginCameraRendering
+可自定义 Setup Culling Parameters 设置筛选参数
+            配置用于确定剔除系统如何剔除灯光和阴影的参数。
+            可以使用自定义渲染器覆盖渲染管道的这一部分。
+        Culling 剔除
+            使用上一步中的剔除参数来计算“相机”可见的可见渲染器，
+            阴影投射器和“灯光”列表。剔除参数和相机层距 影响剔除和渲染性能。
+        Build Rendering Data 建立渲染数据
+            根据剔除输出，来自 URP资产， 相机，以及当前正在运行的平台来构建RenderingData
+            渲染数据告诉渲染器摄像机和当前所选平台所需的渲染工作量和质量
+可自定义 Setup Renderer 设置渲染器
+            生成渲染通道列表，并根据渲染数据将它们排队以执行。
+            可以使用自定义渲染器覆盖渲染管道的这一部分。
+        Execute Renderer 执行渲染器
+            执行队列中的每个渲染过程。
+            渲染器将​​Camera图像输出到帧缓冲区。
+        EndCameraRendering
+
+        EndFrameRendering
+
+Legend
+    Pipline Callback
+    Overridable Function
+    Internal Function
+
+
+当“图形设置”中的渲染管道处于活动状态时，Unity将使用URP渲染项目中的所有摄像机，
+包括游戏和场景视图摄像机，“反射探测器”以及检查器中的预览窗口。
+
+URP渲染器为每个Camera执行Camera循环，该循环执行以下步骤：
+    剔除场景中的渲染对象
+    为渲染器生成数据
+    执行将图像输出到帧缓冲区的渲染器。
+
+在RenderPipelineManager类中，URP提供可用于在渲染帧之前和之后
+以及渲染每个Camera循环之前和之后执行代码的事件。这些事件是：
+    beginCameraRendering
+    beginFrameRendering
+    endCameraRendering
+    endFrameRendering
+```
+
+#### 摄像机
+
+```c#
+// 摄像机堆栈
+// Camera Stacking
+
+// 在URP中，使用 camera Stacking 对多个摄像机的输出进行分层，并创建单个组合
+// 可以实现 2D UI中的 3D模型 车辆驾驶舱 的效果
+
+// 由 基本摄像机 和 一个或多个 overlay 摄像机 组成
+// 摄像机堆栈使用摄像机堆栈中所有摄像机的组合输出覆盖基本摄像机的输出。
+// 这样，可以对基本摄像机的输出进行任何处理，也可以对摄像机堆栈的输出进行处理。
+// 例如，可以将“摄影机堆栈”渲染到给定的渲染目标，应用后期处理效果，等等
+
+// URP 在摄像机中执行多个优化，包括渲染顺序优化以减少 overdraw
+// 但是，使用"摄像机堆栈"时，可以有效地定义呈现这些摄像机的顺序。
+// 因此，您必须小心不要以导致overdraw的方式排列摄像机。
+
+
+// 添加摄像机堆栈
+//     在场景中创建相机。它的渲染类型默认为Base，使其成为基本相机
+//     在场景中创建另一个相机，然后选择它
+//     在“摄像机检查器”中，将“摄像机的渲染类型”更改 为“覆盖”
+//     再次选择基本摄像机。在“摄像机检查器”中，滚动到“堆栈”部分，
+//         单击加号（+）按钮，然后单击“叠加摄像机”的名称
+
+// 叠加摄像机现在是基本摄像机的摄像机堆栈的一部分。
+// Unity在基础摄影机的输出之上渲染叠加摄影机的输出。
+
+// 可以通过直接操纵cameraStack基本摄像机的通用附加摄像机数据组件的属性，
+// 将脚本中的摄像机添加到摄像机堆栈中，如下所示：
+var cameraData = camera.GetUniversalAdditionalCameraData();
+cameraData.cameraStack.Add(myOverlayCamera);
+
+
+// 从堆栈移除
+var cameraData = camera.GetUniversalAdditionalCameraData();
+cameraData.cameraStack.Remove(myOverlayCamera);
+
+// 更改顺序
+// Inspector操作
+
+// 将同一台叠加摄像机添加到多个堆栈
+// Inspector或者代码
+```
+
+#### Post-processing
+
+```
+后处理会占用很多帧时间，如果是移动设备，默认情况下，是
+    Bloom 禁用高质量过滤
+    Chromatic Aberration 色差
+    Color Grading 颜色分级
+    Lens Distortion 镜头变形
+    Vignette 小插图
+
+注意：对于景深，Unity建议您对低端设备使用高斯景深。对于控制台和桌面平台，请使用“景深”
+注意：对于移动平台上的抗锯齿，Unity建议您使用FXAA
+```
+
+```
+Volumes
+
+通用渲染管线（URP）使用体积框架。
+每个卷可以是全局的，也可以是局部的。
+它们每个都包含场景设置属性值，根据摄像机的位置，
+URP会在这些场景设置属性值之间进行插值，以便计算最终值。
+可以使用 local Volumes 来控制后期处理效果。
+
+可以将Volume组件添加到任何GameObject中，包括Camera，
+尽管为每个Volume创建专用的GameObject是一个好习惯
+Volume组件本身不包含任何实际数据，而是引用一个Volume Profile，
+其中包含要在其之间进行插值的值
+“Volume Profile”包含每个属性的默认值，并且默认情况下将其隐藏。
+要查看或更改这些属性，必须将“Volume overrides”添加到“体积配置文件”中。
+
+卷还包含控制它们如何与其他卷交互的属性。
+一个场景可以包含许多卷。
+全局体积会影响摄影机，无论摄影机位于场景中的何处，
+而局部体积会影响摄影机，如果它们将摄影机封装在其Collider范围内
+```
+
+```
+URP 可用的后处理效果
+Bloom
+Channel Mixed
+Chromatic Aberration
+Color Adjustments
+Color Curves
+Depth of Field
+Film Grain
+Lens Distortion
+Lift Gamma Gain
+Motion Blur
+Panini Projection
+Shadows Midtones Highlights
+Split Toning
+Tonemapping
+Vignette
+White Balance
+```
+
+#### 着色器和材质
+
+```
+通用渲染管线使用与Unity内置渲染管线不同的着色方法。
+因此，内置的Lit和自定义的Lit着色器不适用于URP。
+相反，URP具有一组新的标准着色器。
+URP为最常见的用例场景提供以下着色器
+    Complex Lit
+    Lit
+    Simple Lit
+    Baked Lit
+    Unlit
+    Particles Lit
+    Particles Simple Lit
+    Particles Unlit
+    SpeedTree
+    Autodesk Interactive
+    Autodesk Interactive Transparent
+    Autodesk Interactive 
+    
+使用URP，可以使用 基于物理的着色器 PBS
+和 基于非物理的渲染 PBR 进行实时照明
+
+对于 PBS， 请使用 Lit Shader
+    可以在全平台使用
+    shader的质量取决于平台，但会在全平台保持基于物理的渲染
+    提供了跨硬件的逼真图形
+    Unity Standard Shader 和 
+    Shaderard (Specular setup) Shader 镜面设置
+    均映射到 Lit shader
+    
+如果以功能较弱的设备为目标，或者需要更简单的着色
+请使用 non-PBR 的 Simple Lit Shader
+
+如果不需要实时照明，只希望使用 baked lighting
+和 sample global illumination
+请选择 Baked Lit Shader
+
+如果根本不需要材质上的照明，可以选择 Unlit Shader
+```
+
+```
+SRP Batcher 兼容性
+要确保Shader与SRP Batcher兼容，请执行以下操作
+    在一个名为 UnityPerMaterial 的单个 CBUFFER中，声明所有材料属性
+    在称为 UnityPerDraw 的单个CBUFFER中声明所有内置引擎属性，例如
+        unity_ObjectToWorld unity_WorldTransformParams
+```
+
+```
+URP的Shading models
+
+着色模型定义 材质的颜色 如何根据 曲面方向 查看器方向 照明 等因素而变化
+选择 着色模型 取决于 艺术方向 性能预算
+
+URP为着色器提供以下着色模型：
+    Physically Based Shading
+    Simple Shading
+    Baked Lit Shading
+    No lighting
+
+
+Physically Based Shading
+    Lit
+    Particles Lit
+    不适用于低端移动硬件，可以用下面的 Simple Shading 模型
+
+    PBS 通过 基于物理原理 计算从表面反射的光量来模拟对象在现实生活中的外观
+    可以创建逼真的对象和曲面
+
+    该PBS模型遵循两个原则： 
+        节能
+            表面反射的光永远不会超过入射光的总和。
+            唯一的例外是当物体发光时。
+            例如，霓虹灯。
+        微观几何
+            表面具有在微观水平上的几何形状。
+            一些对象具有光滑的微几何形状，这使它们具有镜面般的外观。
+            其他对象具有粗糙的微几何形状，这使它们看起来更暗淡。
+            在URP中，您可以模拟渲染对象表面的平滑度。
+
+    当光线照射到渲染对象的表面时，一部分光线被反射，一部分光线被折射。
+    反射的光称为镜面反射。这取决于相机的方向和光线照射表面的点（也称为入射角）。
+    在此着色模型中，镜面反射高光的形状使用GGX函数近似。
+
+    对于金属物体，表面会吸收并改变光。对于非金属物体（也称为介电物体），表面反射部分光。
+
+    光衰减仅受光强度影响。这意味着不必增加光的范围即可控制衰减。
+
+
+Simple shading
+    Simple Lit
+    Particles Simple Lit
+
+    适用于风格化的视觉效果
+    适用于功能较弱的平台上的游戏
+
+    材质并不是真正的真实照片级
+    着色器不节省能量
+    此阴影模型基于Blinn-Phong模型
+
+    在此简单着色模型中，“材质”反射漫反射光和镜面反射光，两者之间没有关联。
+    从材质反射的漫反射和镜面反射光的量取决于您为材质选择的属性，
+    因此总反射光可能会超过总入射光。
+    镜面反射仅随相机方向而变化。
+
+    光衰减仅受光强度影响。
+
+Baked Lit shading
+    Baked Lit
+
+    没有实时照明
+    材质可以从 lightmaps 或 Light Probes 接收烘焙的照明
+
+    以较小的性能成本为场景增加了一些深度
+    可以在功能较弱的平台上运行
+
+Shaders with no lighting
+    Unlit
+    Particles Unlit
+
+    没有 directional lights
+    没有 baked lighting.
+```
+
+```
+从内置着色器升级
+
+Standard	Universal Render Pipeline/Lit
+Standard (Specular Setup)	Universal Render Pipeline/Lit
+Standard Terrain	Universal Render Pipeline/Terrain/Lit
+Particles/Standard Surface	Universal Render Pipeline/Particles/Lit
+Particles/Standard Unlit	Universal Render Pipeline/Particles/Unlit
+Mobile/Diffuse	Universal Render Pipeline/Simple Lit
+Mobile/Bumped Specular	Universal Render Pipeline/Simple Lit
+Mobile/Bumped Specular(1 Directional Light)	Universal Render Pipeline/Simple Lit
+Mobile/Unlit (Supports Lightmap)	Universal Render Pipeline/Simple Lit
+Mobile/VertexLit	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Diffuse	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Specular	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Bumped Diffuse	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Bumped Specular	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Self-Illumin/Diffuse	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Self-Illumin/Bumped Diffuse	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Self-Illumin/Specular	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Self-Illumin/Bumped Specular	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Transparent/Diffuse	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Transparent/Specular	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Transparent/Bumped Diffuse	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Transparent/Bumped Specular	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Transparent/Cutout/Diffuse	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Transparent/Cutout/Specular	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Transparent/Cutout/Bumped Diffuse	Universal Render Pipeline/Simple Lit
+Legacy Shaders/Transparent/Cutout/Bumped Specular	Universal Render Pipeline/Simple Lit
+```
+
+```
+Shader Stripping
+着色器剥离
+
+Unity从一个Shader源文件编译许多Shader Variant。
+着色器变体的数量取决于您在着色器中包含的关键字数量。
+在默认的明暗器中，“通用渲染管线”（URP）使用一组用于照明和阴影的关键字。
+URP可以排除某些Shader变体，具体取决于URP资产中启用了哪些功能。
+
+当您禁用URP资产中的某些功能时，管道会从构建中“剥离”相关的Shader变体。
+剥离着色器可为您提供更小的构建尺寸和更短的构建时间。
+如果您的项目永远不会使用某些功能或关键字，这将很有用。
+
+例如，您可能有一个项目，在此项目中您永远不会将阴影用作定向光。
+如果不剥离Shader，则具有定向阴影支持的Shader变体将保留在构建中。
+如果您知道根本不会使用这些阴影，则可以取消选中URP资产中的“投射阴影”以获取主要或其他方向灯。
+然后，URP从构建中剥离这些Shader Variants。
+```
+
+#### 定制URP
+
+```c#
+// 使用beginCameraRendering事件运行自定义方法
+
+// 每个活动Camera 在渲染帧 引发事件
+
+using UnityEngine;
+using UnityEngine.Rendering;
+
+public class URPCallbackExample : MonoBehaviour
+{
+    // Unity calls this method automatically when it enables this component
+    private void OnEnable()
+    {
+        // Add WriteLogMessage as a delegate of the RenderPipelineManager.beginCameraRendering event
+        RenderPipelineManager.beginCameraRendering += WriteLogMessage;
+    }
+
+    // Unity calls this method automatically when it disables this component
+    private void OnDisable()
+    {
+        // Remove WriteLogMessage as a delegate of the  RenderPipelineManager.beginCameraRendering event
+        RenderPipelineManager.beginCameraRendering -= WriteLogMessage;
+    }
+
+    // When this method is a delegate of RenderPipeline.beginCameraRendering event, 
+    // Unity calls this method every time it raises the beginCameraRendering event
+    void WriteLogMessage(ScriptableRenderContext context, Camera camera)
+    {
+        // Write text to the console
+        Debug.Log($"Beginning rendering the camera: {camera.name}");
+    }
+}
+```
+
+#### 2D 暂时用不到，略
+
+```
+简介
+
+Light 2D 组件 照明 Sprite
+
+光源类型：
+    Freedom Light 2D
+    Sprite Light 2D
+    Parametric Light 2D
+    Point Light 2D
+    Global Light 2D
+```
+
+```
+设置
+
+1
+    2D模板 创建工程
+2
+    管道资产
+    Assets > Create > Rendering > Universal Render Pipeline > Pipeline Asset
+3
+    2D渲染器
+    Assets > Create > Rendering > Universal Render Pipeline > 2D Renderer
+4
+    将2D渲染器指定为渲染管线资源的默认渲染器
+    将2D渲染器资源拖动到“渲染器列表”上
+5
+    选项1
+        设置图形质量设置 Edit > Project Settings > Graphics
+        将先前创建的管道资产拖动到“可脚本编写的渲染管道设置”框中
+    选项2
+        用于每个质量级别的设置 Edit > Project Settings > Quality
+        选择要包含在项目中的质量级别
+        将先前创建的管道资产拖动到“渲染”框中
+        对项目中包含的每个质量级别和平台重复 上面两个步骤
 ```
 
 ## [<主页](https://www.wangdekui.com/)
