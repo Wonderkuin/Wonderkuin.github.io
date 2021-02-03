@@ -8,13 +8,13 @@
 
 ## [游戏开发的数学和物理](./notes/kiyoshi_kato.md)
 
-## [Unity DOTS](./notes/ecsDots.md)
+## [C++ 17代码整洁之道](./notes/cleancpp.md)
 
 ## [Unity游戏优化](./notes/unityOptimization.md)
 
-## [Clean C++](./notes/cleancpp.md)
-
 ## [Vim](./notes/learnVim.md)
+
+## [Unity DOTS](./notes/ecsDots.md)
 
 ## [Pro Git](./notes/progit.md)
 
@@ -22,7 +22,7 @@
 
 ## [SFML Essentials](./notes/sfmlEssentials.md)
 
-## [DoTween文档摘抄](./notes/dotween.md)
+## [DoTween文档](./notes/dotween.md)
 
 ## [软件开发者路线图](./notes/apprentPatterns.md)
 

@@ -1,24 +1,85 @@
 ### [<主页](https://www.wangdekui.com/)
 
+[指南第一部分](#index_first)
 [指南第二部分](#index_second)
 [文档与博客](#index_documents)
 
-### 宏
+# Declare
+
+开发需要学习DOTS  
+网上的资料都很旧  
+官方最新文档依旧不全面  
+写法都不可照搬照抄  
+仅仅可以理解一下思路  
+
+第一手资料是官方Demo  
+有很多查询不到的内容和用法  
+
+### 安装
+
+```
+宏
+
 不用托管的IComponentData  
 UNITY_DISABLE_MANAGED_COMPONENTS  
 Hybrid Renderer V2 URP或者DHRP开启  
 ENABLE_HYBRID_RENDERER_V2  
+```
 
-#### 包安装
+```
+推荐安装
+com.unity.entities
+com.unity.rendering.hybrid
+com.unity.dots.editor
+
+官方包
+
+DOTS ECS                                 com.unity.entities
+Rendering                                com.unity.rendering.hybrid
+- Hybrid Renderer V2                     com.unity.render-pipelines.high-definition or com.unity.render-pipelines.universal
+- Animation                              com.unity.animation
+Audio                                    com.unity.audio.dspgraph
+Physics                                  com.unity.physics or com.havok.physics
+- Smooth Penetration Recovery            com.havok.physics
+- Stable Object Stacking                 com.havok.physics
+- Remove Speculative Contacts            com.havok.physics
+- Rigidbody Sleeping                     com.havok.physics
+- Visual Debugger                        com.havok.physics
+Multiplayer                              com.unity.netcode
+- Lag Compensation                       com.unity.physics
+Project Building                         com.unity.platforms
+- Android                                com.unity.platforms.android
+- Linux	                                 com.unity.platforms.linux
+- macOS	                                 com.unity.platforms.macos
+- Web                                    com.unity.platforms.web
+- Windows                                com.unity.platforms.windows
+
+包
+
+com.unity.entities  
+Entities  
+Jobs  
+Burst  
+
+Collections
+
+com.unity.mathematics  
+Mathematics  
+
+com.unity.rendering.hybrid  
+Hybrid Renderer  
+
+com.unity.physics  
+Unity Physics  
+
+直接搜索  
+Havok Physics for Unity  
+ShaderGraph  
+```
+
+#### Domain重载
 
 ```c#
-// DOTS设置
-
-// 推荐安装
-// com.unity.entities
-// com.unity.rendering.hybrid
-// com.unity.dots.editor
-
 // Domain重载
 // 避免进入Play模式时，缓慢的 Domain Reload
 // 在 Edit ProjectSettings Editor 下面选中 进入播放模式选项
@@ -98,51 +159,7 @@ public class StaticEventExampleFixed : MonoBehaviour{
 // 或者启用 生成当前场景
 ```
 
-```
-官方包
-
-DOTS ECS                                 com.unity.entities
-Rendering                                com.unity.rendering.hybrid
-- Hybrid Renderer V2                     com.unity.render-pipelines.high-definition or com.unity.render-pipelines.universal
-- Animation                              com.unity.animation
-Audio                                    com.unity.audio.dspgraph
-Physics                                  com.unity.physics or com.havok.physics
-- Smooth Penetration Recovery            com.havok.physics
-- Stable Object Stacking                 com.havok.physics
-- Remove Speculative Contacts            com.havok.physics
-- Rigidbody Sleeping                     com.havok.physics
-- Visual Debugger                        com.havok.physics
-Multiplayer                              com.unity.netcode
-- Lag Compensation                       com.unity.physics
-Project Building                         com.unity.platforms
-- Android                                com.unity.platforms.android
-- Linux	                                 com.unity.platforms.linux
-- macOS	                                 com.unity.platforms.macos
-- Web                                    com.unity.platforms.web
-- Windows                                com.unity.platforms.windows
-```
-
-com.unity.entities  
-Entities  
-Jobs  
-Burst  
-
-Collections
-
-com.unity.mathematics  
-Mathematics  
-
-com.unity.rendering.hybrid  
-Hybrid Renderer  
-
-com.unity.physics  
-Unity Physics  
-
-直接搜索  
-Havok Physics for Unity  
-ShaderGraph  
-
-# 指南
+<div id="index_first"></div>
 
 ## 第一部分
 Data-Oriented Tech Stack 多线程 面向数据  
@@ -5090,7 +5107,7 @@ public class MoveTowardsEntitySystem : SystemBase {
 
 ```
 实体命令缓冲区 解决两个重要问题
-1 在工作时，无法访问EntityManager
+1 在job中，无法访问EntityManager
 2 执行结构更改，如创建实体时，将创建一个同步点，并且必须等待所有作业完成
 
 实体命令缓冲区 允许排队变化，无论从工作线程还是主线程，使他们能在主线程生效
