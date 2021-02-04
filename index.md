@@ -29,3 +29,5 @@
 ## [Markdown语法](./notes/markdown.md)
 
 ## [笔记](./notes/note.md)
+
+## [Awesome-Gamedev](./notes/awesomeGamedev.md)
