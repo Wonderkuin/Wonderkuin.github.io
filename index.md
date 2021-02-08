@@ -4,6 +4,8 @@
 [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.zh)
 
 
+## [一些游戏算法](./notes/gameAlgo.md)
+
 ## [3D数学基础](./notes/mathPrimer.md)
 
 ## [游戏开发的数学和物理](./notes/kiyoshi_kato.md)

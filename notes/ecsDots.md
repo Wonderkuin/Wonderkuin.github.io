@@ -22,7 +22,7 @@
 
 不用托管的IComponentData  
 UNITY_DISABLE_MANAGED_COMPONENTS  
-Hybrid Renderer V2 URP或者DHRP开启  
+Hybrid Renderer V2 URP或者HDRP开启  
 ENABLE_HYBRID_RENDERER_V2  
 ```
 
@@ -75,6 +75,9 @@ Unity Physics
 直接搜索  
 Havok Physics for Unity  
 ShaderGraph  
+
+coding
+com.unity.coding
 ```
 
 #### Domain重载
@@ -3085,10 +3088,10 @@ struct FooStateSharedComponent : ISystemStateSharedComponentData {
 
 ```c#
 //例子，使用系统状态组件
-// m_newEntities选择具有通用用途但不具有系统状态组件的实体。该查询查找系统之前从未见过的新实体
+// m_newEntities 选择具有通用用途但不具有系统状态组件的实体。该查询查找系统之前从未见过的新实体
 // 系统使用添加了系统状态组件的新实体查询来运行作业
-// m_activeEntities选择同时具有通用和系统状态组件的实体。在实际的应用程序中，其他系统可能是处理或销毁实体的系统。
-// m_destroyedEntities选择具有系统状态但不具有通用组件的实体。由于系统状态组件永远不会自己添加到实体，因此此系统
+// m_activeEntities 选择同时具有通用和系统状态组件的实体。在实际的应用程序中，其他系统可能是处理或销毁实体的系统。
+// m_destroyedEntities 选择具有系统状态但不具有通用组件的实体。由于系统状态组件永远不会自己添加到实体，因此此系统
 // 或其他系统必须删除此查询选择的实体。系统重用销毁的实体查询以运行作业并从实体中删除系统状态组件，这使ECS代码可用
 // 回收实体标识符
 //例子在系统中不维护任何状态，系统状态组件的目的之一是跟踪和是需要分配或清除持久性资源

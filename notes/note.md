@@ -1,35 +1,6 @@
 
 ### [<主页](https://www.wangdekui.com/)
 
-### 健身
-工作中没有大量时间，静力训练  
-腕力运动员锻炼筋，肌肉弹性, 增肌要注意。  
-
-### A*寻路
-```
-OPEN // the set of nodes to be evaluated  
-CLOSED // the set of nodes already evaluated  
-add the start node to OPEN  
-
-loop  
-    current = node in OPEN with the lowest f_cost  
-    remove current from OPEN  
-    add current to CLOSED  
-
-    if current is the target node // path has been found  
-        return  
-
-    foreach neighbour of the current node  
-        if neighbour is not traversable or neighbour is in CLOSED  
-            skip to the next neighbour  
-
-    if new path to neighbour is shouter OR neighbour is not in OPEN  
-        set f_cost of neighbour  
-        set parent of neighbour to current  
-        if neighbour is not in OPEN  
-            add neighbour to OPEN  
-```
-
 ### 旧时的梦
 2016年10月10日  
 
@@ -67,5 +38,6 @@ start "" "C:\Program Files\Unity\Editor\Unity.exe"
 #### Unity 2020.2.1f
 
 [来自大佬的分享](https://bbs.itzmx.com/thread-97059-1-1.html)
+
 
 ## [<主页](https://www.wangdekui.com/)
