@@ -1,7 +1,5 @@
 ### [<主页](https://www.wangdekui.com/)
 
-[精通安卓UI](#pro)
-
 # Android
 
 ## 简介
@@ -1640,16 +1638,5 @@ attr 必须包括name和format
     />
 </LinearLayout>
 ```
-
-#### 创建复合组件 略
-#### OpenGL 略
-#### 本地化和辅助功能 略
-
-<div id="pro"></div>
-
-# Pro Android UI
-
-# TODO
-
 
 ## [<主页](https://www.wangdekui.com/)

@@ -1,6 +1,8 @@
 
 ### [<主页](https://www.wangdekui.com/)
 
+# 补遗
+
 ### 旧时的梦
 2016年10月10日  
 
@@ -28,16 +30,5 @@
 又是深秋梦  
 京城远泊无所有  
 伊人长待黄昏后  
-
-#### 多个Unity破解版共存
-```
-echo f | xcopy C:\ProgramData\Unity\Unity_lic2019.ulf C:\ProgramData\Unity\Unity_lic.ulf /y
-start "" "C:\Program Files\Unity\Editor\Unity.exe"
-```
-
-#### Unity 2020.2.1f
-
-[来自大佬的分享](https://bbs.itzmx.com/thread-97059-1-1.html)
-
 
 ## [<主页](https://www.wangdekui.com/)
