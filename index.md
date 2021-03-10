@@ -4,14 +4,15 @@
 [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.zh)
 
 
-## [Unity DOTS](./notes/ecsDots.md)
 ## [游戏开发的数学和物理](./notes/kiyoshi_kato.md)
 ## [C++ 17代码整洁之道](./notes/cleancpp.md)
-## [模式](./notes/apprentPatterns.md)
+## [软件开发者路线图](./notes/apprentPatterns.md)
 ## [Unity游戏优化](./notes/unityOptimization.md)
 ## [3D数学基础](./notes/mathPrimer.md)
-## [Vim](./notes/learnVim.md)
+## [Unity DOTS 文档](./notes/unityDots.md)
+## [Unity DOTS 参考](./notes/ecsDots.md)
 ## [游戏编程](./notes/gameAlgo.md)
+## [Vim](./notes/learnVim.md)
 ## [Pro Git](./notes/progit.md)
 ## [Android UI](./notes/androidUI.md)
 ## [Markdown](./notes/markdown.md)
