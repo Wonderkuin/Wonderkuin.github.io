@@ -1,4 +1,4 @@
-### [<主页](https://www.wangdekui.com/)
+### [<主页](/index.html)
 
 # Unity DOTS 文档
 
@@ -27,7 +27,7 @@ Coding                          com.unity.coding
 HDRP                            com.unity.render-pipelines.high-definition  
 URP                             com.unity.render-pipelines.universal  
 ShaderGraph  
-InputSystem  
+InputSystem                     com.unity.inputsystem
 
 #### Domain重载
 
@@ -336,7 +336,7 @@ public class RotationSpeedSys : SystemBase {
             .Schedule();
     }
 }
-
+```
 #### 共享组件
 
 根据共享组件的特定值过滤实体集  
@@ -5260,4 +5260,130 @@ Light 2D 组件 照明 Sprite
 ```
 ---
 
-## [<主页](https://www.wangdekui.com/)
+## NetCode
+
+```
+具有客户端预测功能的专用服务器模型
+可以创建多人游戏
+以Ecs 为基础
+
+NetCode开发人员正在通过类似于Asteroids的简单的
+多方向设计游戏对软件包进行原型设计。
+未开发的DotsSample包还使用NetCode包来获得更实际的测试
+
+至少安装 2019.3.b11
+
+幽灵组件
+需要客户端和服务器共享数据的方法
+需要为每个客户端和服务器创建一个不同的world
+如果要在服务器和客户端之间共享数据，请创建一个空的GameObject，命名SharedData
+添加ConvertToClientServerEntity组件
+在SharedData下挂gameobject
+
+在netcode中，可以使用Playerid标识玩家
+将下面脚本挂在gameobject上
+```
+
+```c#
+using Unity.Entities;
+using Unity.NetCode;
+
+[GenerateAuthoringComponent]
+public struct MoveableCubeComponent : IcomponentData {
+    [GhostDefaultField]
+    public int PlayerId;
+}
+```
+
+```
+//todo
+```
+
+---
+
+## Scriptable Build Pipeline
+
+[官方文档用例](https://docs.unity3d.com/Packages/com.unity.scriptablebuildpipeline@1.6/manual/UsageExamples.html)
+
+---
+
+## Platforms
+
+```
+和 SBP没有关系，为了多平台构建管理
+```
+
+---
+
+## 补充
+
+```
+AddHybridComponent
+```
+---
+
+## InputSystem
+
+```c#
+// 直接
+using UnityEngine;
+using UntiyEngine.InputSystem;
+
+public class MyPlayerScript : MonoBehaviour {
+    void FixedUpdate() {
+        var gamepad = Gamepad.current;
+        if (gamepad == null)
+            return;// No Gamepad connected.
+
+        if (gamepad.rightTrigger.wasPressedThisFrame)
+            ;// "use" code here
+        Vector2 move = gamepad.leftStick.ReadValue();
+        // "Move" code here
+
+        // 相同类型 Keyboard.current Mouse.current
+    }
+}
+```
+
+```
+设置
+PlayerInput 组件，新建input action asset
+Projection Settings > Input System Package
+
+更新模式
+FixedUpdate固定帧率更新
+DynamicUpdate当前帧率更新
+ManualUpdate不自动处理事件，更新InputSystem.Update时再处理
+
+过滤噪声
+默认禁用，只和.current有关，例如Gamepad.current
+如果不需要就关掉，避免造成额外开销
+设备上只要有输入，就会制造相应设备的current，例如，一个Gamepad接收到新的输入
+Gamepad.current分配给该手柄
+某些设备可能有噪声，即使没有任何交互，也会接收输入，例如，PS4DualShock陀螺仪
+可产生恒定电流，如果同时插了xbox和ps4控制器，ps4就会不断将自己推上前端，挤掉xbox
+这时，使用过滤噪声，系统自动确定InputControl.noise
+该系统目前无法检测到大多数形式的噪音，但可以检测到游戏手柄的噪音，
+
+补偿屏幕方向
+用不着
+
+默认值属性
+手柄用
+
+支持的设备
+如果是空，没有任何限制，可以接收任何设备
+如果包含一到多个设备，仅仅使用列表中的设备
+
+覆盖编辑器
+在编辑器中，可能想使用应用程序不支持的设备
+Window > Analysis > Input Debugger
+Options > Add Devices Not Listed in Supported Devices
+
+其他更为复杂的，见文档
+```
+
+---
+
+
+## [<主页](/index.html)

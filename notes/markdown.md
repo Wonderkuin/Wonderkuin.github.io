@@ -12,7 +12,7 @@
 
 # Markdown
 
-### [<主页](https://www.wangdekui.com/)
+### [<主页](/index.html)
 ---
 ___
 ***
@@ -96,4 +96,4 @@ Line4
 
 $ e = m c^2 $
 
-## [<主页](https://www.wangdekui.com/)
+## [<主页](/index.html)

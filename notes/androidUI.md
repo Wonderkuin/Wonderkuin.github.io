@@ -1,4 +1,4 @@
-### [<主页](https://www.wangdekui.com/)
+### [<主页](/index.html)
 
 # Android
 
@@ -1639,4 +1639,4 @@ attr 必须包括name和format
 </LinearLayout>
 ```
 
-## [<主页](https://www.wangdekui.com/)
+## [<主页](/index.html)

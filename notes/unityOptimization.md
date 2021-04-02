@@ -1,7 +1,7 @@
 # Unity 2017 游戏优化
 # Unity 2017 Game Optimizaton
 
-### [<主页](https://www.wangdekui.com/)
+### [<主页](/index.html)
 
 ## 目标
 
@@ -22,4 +22,4 @@
 
 ## Profiler
 
-## [<主页](https://www.wangdekui.com/)
+## [<主页](/index.html)

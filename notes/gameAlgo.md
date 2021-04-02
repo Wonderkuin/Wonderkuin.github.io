@@ -1,6 +1,6 @@
 # 游戏有用的算法
 
-### [<主页](https://www.wangdekui.com/)
+### [<主页](/index.html)
 
 ---
 
@@ -337,4 +337,4 @@ public static class AStar
 
 [Unity系列教程 : 从C#编程到渲染详解](https://www.yuque.com/henjihenguanjian/technicalarticles)
 
-## [<主页](https://www.wangdekui.com/)
+## [<主页](/index.html)

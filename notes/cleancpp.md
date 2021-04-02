@@ -2,7 +2,7 @@
 # C++代码整洁之道
 ## C++17可持续软件开发模式实践
 
-### [<主页](https://www.wangdekui.com/)
+### [<主页](/index.html)
 
 # 第一章 略
 
@@ -37,4 +37,4 @@ private:
 
 # 第二章 构建安全体系
 
-## [<主页](https://www.wangdekui.com/)
+## [<主页](/index.html)

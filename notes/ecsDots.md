@@ -1,4 +1,4 @@
-### [<主页](https://www.wangdekui.com/)
+### [<主页](/index.html)
 
 # Unity DOTS 旧的参考
 
@@ -1421,7 +1421,7 @@ GPU Instancing最大支持1023个，超过了就要多次调用Graphics.DrawMesh
 生成完成，在SkinnedMeshRenderer组件绑定自定义着色器，内含贴图  
 
 将Prefab绑定ConvertToEntity组件  
-选Convert And Inject Game Object不删除原始对象  
+选Convert And Inject Gamebject不删除原始对象  
 已经有了Entity，使用ECS方式加载  
 ```c#
 private void Update() {
@@ -1522,4 +1522,4 @@ struct ActivateButtonJob : IJobForEachWithEntity<MouseClicked> {
 }
 ```
 
-## [<主页](https://www.wangdekui.com/)
+## [<主页](/index.html)

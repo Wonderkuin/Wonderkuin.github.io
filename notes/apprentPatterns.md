@@ -1,6 +1,6 @@
 # 模式
 
-### [<主页](https://www.wangdekui.com/)
+### [<主页](/index.html)
 
 ---
 
@@ -545,4 +545,4 @@ Peter原理，“在等级式的组织结构中，员工往往被提升到他不
 不只是计算机科学知识，开发过程有多高效，有多少项目经验。
 
 
-## [<主页](https://www.wangdekui.com/)
+## [<主页](/index.html)

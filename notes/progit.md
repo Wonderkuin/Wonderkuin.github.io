@@ -1,6 +1,6 @@
 # ProGit
 
-### [<主页](https://www.wangdekui.com/)
+### [<主页](/index.html)
 
 ## SSH
 
@@ -397,4 +397,4 @@ git remote add origin https://gitee.com/lemongame/slgrpg_2d.git
 git pull origin master --depth=1
 ```
 
-## [<主页](https://www.wangdekui.com/)
+## [<主页](/index.html)

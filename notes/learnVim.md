@@ -1,251 +1,110 @@
-### [<主页](https://www.wangdekui.com/)
+### [<主页](/index.html)
 
 # Learning the vi and Vim Editors
 
-# 旧的
+### 文本编辑
+```markdown
+i 插入模式
+Esc 命令模式
+cw 修改一个词
+: 进入ex模式
+ZZ 保存并退出
+:e! 重置
+:q! 不保存退出
+:w! 覆盖已有 文件名
+:w 写入新文件中
+:!rm Shell删除文件
+:!dir Cmd查看文件
+:!ls /tmp Shell查看临时文件夹
+:sh 开一个新shell
+CTRL_D 结束shell，回到vim
+:!cmd 打开新Cmd
+:pre :preserve 强制写入缓冲区
+
+0 $ b w h j k l
+4l
+:set wm=10 wrapmargin 自动换行
+:set nu 设置行号
+G 42G gg 42gg
+dd 删除一行
+p 粘贴到后面
+P 粘贴到前面
+a 追加
+r 替换
+x 删除
+I 插入到开头
+A 插入到结尾
+c2b 修改前面两个单词
+c0 修改到开头
+C c$ 修改到结尾
+R 替换到结尾
+s 删除并插入 
+S 整行删除并插入 和C不同，不从光标开始
+~ 更改大小写
+D 删除一行
+2dd 删除两个一行
+u 撤销
+xp xP 修改位置
+dd p 修改行位置
+yy 2j p 修改行位置
+yw y$ 4yy 拷贝
+. 重复上一个命令
+u 撤销上一个命令，光标不需要在同一行
+U 撤销对同一行的编辑动作，只要光标还在这一行
+秘诀：u可以撤销自己，回到上一次编辑的地方，只需要撤销，再撤销
+Ctrl + R redo
+
+A I o O s S R 都会进入插入模式
+S == cc
+50i* Esc 输入50个星号
+25a*- Esc 输入25个*-
+2r& || 替换为 &&
+
+J 合并行 . 继续
+Ctrl + j 合并行
+ea 追加到单词后面
+
+更改 替换 复制
+cw dw yw
+2cw 2dw 2yw 同 c2w d2w y2w
+3cb 3db 3yb 同 c3b d3b y3b
+cc dd yy或Y
+c$或C d$或D y$
+c0 d0 y0
+r x或X yl或yh
+5s 5x 5yl
+
++ 到下一行的第一个字符
+- 到上一行的第一个字符
+e或E 到单词的结尾
+w或W 往前一个单词
+b或B 往后一个单词
+$ 一行结尾
+0 一行开头
+
+p或P 往缓冲区放置文本
+ZZ 保存并离开
+:q! 不保存离开
+
+i I a A o O S R J ~ . u U
+```
+
+### 快速移动
+
+```markdown
+^F 往前滚动一整屏
+^B 往后滚动一整屏
+^D 往下滚动半屏
+^U 往上滚动半屏
+^E 往上滚动一行
+^Y 往下滚动一行
+
+z Enter 将光标移到屏幕顶端并滚动屏幕
+z . 将光标移到屏幕中心并滚动屏幕
+z- 将光标移动到屏幕底端并滚动屏幕
+200z Enter 把第200行移动到屏幕顶端 code中不管用
+
 
 ```
-i
-a
-o
-I
-A
-O
 
-:set nu
-:vs
-:sp
-:q
-:% s/java/python/g
-:syntax on
-:set hls         high light
-:set incsearch    inc search
-
-v
-V
-Ctrl+v
-
-Switch
-ngg
-nG
-:n Enter
-vim +n filename
-
-Buffer
-d 
-y
-p
-
-Shell
-Ctrl+h delete last alphabet
-Ctrl+w delete last word
-Ctrl+u delete last row
-Ctrl+e move end
-Ctrl+a move ahead
-Ctrl+b move back
-Ctrl+l clear screen
-
-gi fast edit in last position
-
-h
-j
-k
-l
-w
-W
-e
-E
-b
-B
-f{char} find a char
-        ,  prev
-    ;  next
-F{char} find a char reverse
-        ,  prev
-    ;  next
-
-t{char} find a char before
-
-0 ^  move to first char in a line
-$ g_ move to last char in a line
-
-0w the first word
-
-() move in sentance
-{} move in paragraph
-
-gg to the start position
-G  to the end position
-Ctrl+o   fast backword
-
-H   Head
-M   Middle
-L   Lower
-
-Ctrl+u upword
-Ctrl+f forword
-zz  middle screen
-
-ChangeWords
-x
-d
-       daw
-       diw
-       dt{char}
-       dd
-       d0
-       d$
-       2dd
-       4x
-       xp             change position of two chars
-r
-s      sbstitude, delete and insert mode
-       4s
-R
-S
-
-c
-       caw
-       ct{char}
-       ci[
-       ci(
-C      delete the row and insert mode
-
-v
-       vi"
-p
-       yiw p
-       yy p
-       dw p
-       x p
-
-/      find next ->
-?      find next <-
-n      find next
-N      find forward
-*      find current word next
-#      find current word forward
-
-Search and substitude
-:[range]s[ubstitude]/{pattern}/{string}/[flags]
-        range :10,20
-          :%     all
-    flags g      global
-          c      confirm
-          n      number
-    :% s/self/this/g
-    :1,6 s/self/this/g
-    :1,6 s/self//n
-    :% s/\<quack\>/jio/g        use regular expression
-
-u      undo
-Ctrl+r   undoundo
-
-BufferChange
-:ls
-:b n     switch to n buffer index
-:bpre[vious]
-:bnext
-:bfirst
-:blast
-:b buffer_name_or_file + tab
-
-:e file_name       open another file
-:bd[elete]
-
-:sp == Ctrl+w s
-:vs == Ctrl+w v
-
-Ctrl+w w    switch tab
-Ctrl+w h    left
-Ctrl+w j    down
-Ctrl+w k    up
-Ctrl+w l    right
-
-Ctrl+w H    all window the same height width
-Ctrl+w _    max the alive window height
-Ctrl+w |    max the alive window width
-n Ctrl+w _  set the alive window height to n lines
-n Ctrl+w |  set the alive window width to n lines
-
-TabPage
-ctrl+w T   change tabpage
-
-:tabe[dit] {filename}
-:tabc[lose]
-:tabo[nly]
-
-:tabn[ext] {N}    {N}gt
-:tabn[ext]        gt
-:tabn[ext]        gT
-
-UserRegister
-:a yiw
-:b dd
-:reg a
-:reg b
-""     nameless register, default
-"+     copy to system clipboard
-"0     copy to register0, which is copy using only
-"%     current filename
-".     last insert text
-
-:echo has('clipboard')     look it has clipboard or not, 1 yes
-:set clipboard=unnamed     set clipboard default register
-Shift+Insert     Paste from Clipboard
-:e!     clear change before save
-
-Macro
-normal mode      q    RECORD    q     END_RECORD
-q{register}     RECODE in which register a to z
-@{register}     PLAYBACK
-
-qa I"  ESC  A"  ESC q
-@a
-
-Visual+Macro
-        Visual select all row
-    use : enter deline mode
-    :'<,'>normal @a
-
-Visual Only
-        Visual select all row
-    use : enter deline mode
-    :'<,'>normal I"
-    :'<,'>normal A"
-
-:  <Ctrl+p>            use last order
-
-
-AutoFill
-Ctrl+n             default keyword
-Ctrl+x Ctrl+n      current buffer keyword
-Ctrl+x Ctrl+i      include file keyword
-Ctrl+x Ctrl+j      tag file keyword
-Ctrl+x Ctrl+k      dict find
-Ctrl+x Ctrl+l      whole row fill
-
-Ctrl+x Ctrl+f      filename
-Ctrl+x Ctrl+p      word
-
-Ctrl+n             next
-Ctrl+p             previous
-
-Ctrl+x Ctrl+o      Omni fill
-
-:filetype on       open filetype
-:set filetype      print filetype
-
-:r[ead]
-:r! echo %         current filename
-:r! echo %:p       current filepath
-
-ColorScheme
-:colorscheme
-:colorscheme Ctrl+d      show all colorscheme
-:colorscheme darkblue
-
-OpenFile
-vim c.txt b.txt O        not zero, o
-
-## [<主页](https://www.wangdekui.com/)
+---
