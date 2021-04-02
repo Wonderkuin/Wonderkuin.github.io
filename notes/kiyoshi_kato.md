@@ -17,26 +17,24 @@
 # 物体的运动
 
 ### 让物体沿水平方向运动
-
+```
 匀速直线运动
 x += v
-
+```
+---
 ### 通过键盘控制物体的运动
-
-勾股定理
 ```python
+#勾股定理
 if (left)
     if (up or down)
         x -= Delta / Root2
     else
         x -= Delta
 ```
-
+---
 ### 让物体沿任意方向运动
-
-三角函数 正弦 余弦 弧度
-
 ```python
+#三角函数 正弦 余弦 弧度
 angle = Pi / 6
 vx = delta * cos(angle)
 vy = delta * sin(angle)
@@ -44,13 +42,12 @@ vy = delta * sin(angle)
 x += vx
 y += vy
 ```
-
+---
 ### 在物体运动中加入重力
-
 抛物运动 重力加速度 计算误差 积分
 在有加速度的情况下，速度 = 距离 / 时间 不再准确
 
-##### 位置　速度　加速度
+位置　速度　加速度 关系
 
 $ x = \int vdt $
 
@@ -62,25 +59,15 @@ $ y = \int v_ydt $
 
 $ v_y = \int Gdt $
 
-得出
-
-$ v_y = Gt + C_1 $
+得出 $ v_y = Gt + C_1 $
 
 $ C_1 $ 为积分常数，代表t=0时的速度，即初始速度
 
-得出
-
-$ y = \int v_ydt = \int (Gt + C_1)dt = \dfrac 12Gt^2 + C_1t + C_2 $
+得出 $ y = \int v_ydt = \int (Gt + C_1)dt = \dfrac 12Gt^2 + C_1t + C_2 $
 
 $ C_2 $ 为积分常数，代表t=0时的y坐标，即初始位置
 
-##### t时刻的速度为
-
-$$
-v_y = \sum_{i=1}^tG
-$$
-
-##### t时刻的位置
+t时刻的速度为 $ v_y = \sum_{i=1}^tG $
 
 用 i - 1，是因为y加了vy之后，需要给vy加上加速度，计算y时所使用的vy的更新被延后了一次
 
@@ -90,9 +77,7 @@ y += vy;
 vy += GR
 ```
 
-$$
-y = \sum_{i=1}^tv_y = \sum_{i=1}^tG(i-1) = G \cdot \dfrac 12 t(t=1) = \dfrac 12Gt^2 - \dfrac 12Gt
-$$
+$ y = \sum_{i=1}^tv_y = \sum_{i=1}^tG(i-1) = G \cdot \dfrac 12 t(t=1) = \dfrac 12Gt^2 - \dfrac 12Gt $
 
 正确结果为 $ y = \frac 12Gt^2 $
 
@@ -103,41 +88,34 @@ $$
 x = vx * t;
 y = 0.5f * GR * t * t + vy * t + 200.0f;
 ```
+---
 
-## 物体随机飞溅
-### 随机数 均匀随机数 正态分布
+# 物体随机飞溅
 
 ### 均匀随机数
-```c++
-//正常
-Balls[i].vx = rand() * VEL_WIDTH / (float)RAND_MAX - VEL-WIDTH / 2.0f;
-Balls[i].vy = rand() * VEL_HEIGHT / (float)RAND_MAX - VEL_HEIGHT / 2.0f - BASE_VEL;
-
-//整数，向正上方物体，同样速度物体增多
-Balls[i].vx = ( rand() % (VEL_WIDTH + 1) ) - VEL_WIDTH / 2.0f; 
-Balls[i].vx = ( rand() % (VEL_HEIGHT + 1) ) - VEL_HEIGHT / 2.0f - BASE_VEL; 
-
-//产生从a到b的随机数
-rand() * (b = a) / (float)RAND_MAX + a;
+```python
+#正常
+x = rand() * width / max - width / 2
+y = rand() * height / max - height / 2 - base
+#向正上方物体增多 用整数多，就不自然了
+x = (rand() % (width + 1)) - width / 2
+y = (rand() % (height + 1)) - height / 2 - base
+#产生从a到b的随机数
+rand() * (b - a) / max + a
 ```
-
+---
 ### 正态分布
-
 $$
 p(x) = \frac 1{\sqrt{2\sigma^2}}exp\left( -\frac{ \left( x - \mu \right)^2 }{ 2 \sigma^2 } \right)
 $$
-
 Box-Muller  
-
 $$
 Z_1 = \sqrt{-2ln(a)} cos(2{\pi}b)
 $$  
 
-
 $$
 Z_2 = \sqrt{-2ln(a)} sin(2{\pi}b)
 $$
-
 ```c++
 // √-2ln(a)
 fRand_r = sqrtf( -2.0f * logf( ( float )( rand() + 1 ) / ( RAND_MAX + 1 ) ) );
@@ -146,9 +124,9 @@ fRand_t = 2.0f * PI * ( float )rand() / RAND_MAX;
 Balls[i].vx = ( fRand_r * cosf( fRand_t )) * VEL_WIDTH;
 Balls[i].vy = ( fRand_r * sinf) fRand_t )) * VEL_HEIGHT - BASE_VEL;
 ```
-
+---
 ## 圆周运动
-### 角速度 向心力
+#### 角速度 向心力
 
 
 ```c++
@@ -158,6 +136,7 @@ fAngle += 2.0f * PI / 120f; // 120帧完成一周运动
 ```
 
 角速度 单位时间内角度的变化量  
+
 $$
 \omega = \dfrac \theta t
 $$
@@ -238,7 +217,7 @@ $ v_y = r \omega cos ( \omega t) $
 
 
 ## 微分方程式 数值解法
-### 微分方程 数值解法 欧拉法
+#### 微分方程 数值解法 欧拉法
 
 运动方程  
 F = ma  

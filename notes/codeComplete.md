@@ -3,15 +3,13 @@
 # Code Complete
 
 # Laying the Foundation
-
 打好基础
 
 ## Welcome to Software Construction
-
 欢迎进入软件构建的世界
 
 #### 什么是软件构建
-
+```
 软件开发过程中的不同活动activity：
 定义问题problem definition
 需求分析requirements development
@@ -24,7 +22,8 @@
 集成integration
 系统测试system testing
 保障维护corrective maintenance
-
+```
+```
 构建活动中的具体任务task：
 验证有关的基础工作已经完成，因此构建活动可以顺利进行下去
 确定如何测试所写的代码
@@ -36,7 +35,8 @@
 润饰代码，自信进行代码的格式化和注释
 将单独开发的多个软件组件集成为一体
 调整代码tuning code，让它更快、更省资源
-
+```
+```
 一些重要的非构建活动nonconstruction activity：
 管理management
 需求分析
@@ -44,19 +44,20 @@
 用户界面设计
 系统测试
 维护
+```
 
 #### 软件构建为何如此重要
-
+```
 构建活动是软件开发的主要组成部分
 构建活动是软件开发中的核心活动
 把主要精力集中于构建活动，可以大大提高程序员的生产率
 构建活动的产物-源代码--往往是对软件的位移精确描述
 构建活动是唯一一项确保会完成的工作
+```
 
 ## Metaphors for a Richer Understanding of Software Development
-
 用隐喻来更充分地理解软件开发
-
+```
 形象的比喻：
 病毒 virus
 特洛伊木马Trojan Horse
@@ -67,11 +68,11 @@
 论坛口水战 flame
 双绞线转换头 twisted sex changer?
 致命错误 fatal error
+```
 
 #### The Importance of Metaphors
-
 隐喻的重要性
-
+```
 重要的研发成功常常产自类比analogy
 这种隐喻的方法叫做建模modeling
 
@@ -93,11 +94,11 @@
 过去把数据处理看作流经计算机flowing through a computer
 的连续卡片流stream of cards
 现在把焦点放到数据池pool of data上，计算机偶尔涉足其中
+```
 
 #### How to Use Software Metaphors
-
 如何使用软件隐喻
-
+```
 隐喻的作用更像启示heuristic，而不是算法algorithm
 
 算法是一套明确的指令，使你能完成某个特定任务
@@ -110,11 +111,11 @@
 仅仅告诉你如何去找，而没有告诉你找什么
 
 对于编程来说，最大的挑战还是将问题概念化conceptualizing
+```
 
 #### Common Software Metaphors
-
 常见的软件隐喻
-
+```
 编写软件是一门科学a science
 艺术an art
 一个过程a process
@@ -217,11 +218,14 @@ Key Points
 通过把软件开发中的实践比喻成智慧工具箱中的工具，我们发现，每个程序员都有很多工具，
 但并不存在任何一个能试用所有工作的工具，选择合适的工具是有效编程的关键
 不同的隐喻并不彼此排斥，应当使用对你最有益处的某种组合
+```
 
 ## Measure Twice, Cut Once: Upstream Prerequisites
-
 三思而后行：前期准备
+```
+//TODO
+```
 
-
+---
 
 ## [<主页](/index.html)

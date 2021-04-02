@@ -3,7 +3,7 @@
 # UE4 游戏编程入门
 
 #### 熟悉编辑器
-
+```
 Ctrl+Alt+拖拽 多选
 
 Alt+左键+拖拽 绕轴旋转相机
@@ -13,9 +13,9 @@ Alt+中键+拖拽 上下左右移动相机
 Ctrl+双键 上下移动物体
 Ctrl+右键 横向移动物体
 Ctrl+左键 纵向移动物体
-
+```
 ### 理解Gameplay框架
-
+```
 项目结构
 Config 存储配置文件 .ini
 Content 所有资源
@@ -41,8 +41,9 @@ AutoSaves 临时工作文件
 Backup 同上
 Config 存储项目设置ini
 Logs
-
+```
 #### Gameplay框架
+```
 是一个C++或蓝图类集，管理每个项目中的游戏规则，用户输入和Avatar
 摄像机，玩家的HUD
 
@@ -90,9 +91,9 @@ Epic提供了Unreal Motion Graphics UMG编辑器
 Epic为常见游戏类型提供了一些已经有GameMode
 Project setting可以修改 DefaultGameMode
 场景 setting 可以 Override mode
-
+```
 ### 坐标系 变换 单位和组织
-
+```
 控制个别Actor的类型变换
 使用右手笛卡尔坐标系
 
@@ -110,9 +111,9 @@ Roll  Z
 
 建造Actor前需要确保尺寸
 移动旋转缩放 都有对齐到格子5倍单位 固定角度 倍率
-
+```
 #### World Outliner
-
+```
 搜索
 搜索减法 ground-aria1 不包含aria1的ground名称
 
@@ -139,5 +140,9 @@ Use Power of Two Snap Size
 变换 对齐/排列 对齐原点到网格
 
 即使网格关闭，Actor仍然会沿着网格移动
+```
+
+---
+
 
 ## [<主页](/index.html)

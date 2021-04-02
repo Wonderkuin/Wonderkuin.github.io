@@ -326,15 +326,9 @@ public static class AStar
 
 ---
 
-### 图形学基础
-
-[EasyX](https://easyx.cn/)
 [OpenGL](https://learnopengl-cn.github.io/)
+[Unity系列教程 : 从C#编程到渲染详解](https://www.yuque.com/henjihenguanjian/technicalarticles)
 
 ---
-
-### Unity基础
-
-[Unity系列教程 : 从C#编程到渲染详解](https://www.yuque.com/henjihenguanjian/technicalarticles)
 
 ## [<主页](/index.html)
