@@ -694,7 +694,7 @@ public class StatefulSystem : SystemBase {
         Entities
             .WithAll<StateComponentB>()
             .ForEach(
-                (Entity entity, int entityInQueryIndex, ref GaneralPurposeComponentA gpA)=>{
+                (Entity entity, int entityInQueryIndex, ref GeneralPurposeComponentA gpA)=>{
                     // Process entity, in this case by decrementing the Lifetime count
                     gpA.Lifetime--;
 
