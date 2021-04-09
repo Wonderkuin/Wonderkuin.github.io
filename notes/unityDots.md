@@ -1587,7 +1587,7 @@ public class BufferSum : SystemBase {
     //Schedules the two jobs with a dependency between them
     protected override void OnUpdate() {
         // The query variable can be accessed here because we are
-        // usign WithStoreEntityQueryInField(query) in the entities.ForEach below
+        // using WithStoreEntityQueryInField(query) in the entities.ForEach below
         int entitiesInQuery = query.CalculateEntityCount();
 
         // Create a native array to hold the intermediate sums
@@ -5320,69 +5320,6 @@ public struct MoveableCubeComponent : IcomponentData {
 ```
 AddHybridComponent
 ```
----
-
-## InputSystem
-
-```c#
-// 直接
-using UnityEngine;
-using UntiyEngine.InputSystem;
-
-public class MyPlayerScript : MonoBehaviour {
-    void FixedUpdate() {
-        var gamepad = Gamepad.current;
-        if (gamepad == null)
-            return;// No Gamepad connected.
-
-        if (gamepad.rightTrigger.wasPressedThisFrame)
-            ;// "use" code here
-        Vector2 move = gamepad.leftStick.ReadValue();
-        // "Move" code here
-
-        // 相同类型 Keyboard.current Mouse.current
-    }
-}
-```
-
-```
-设置
-PlayerInput 组件，新建input action asset
-Projection Settings > Input System Package
-
-更新模式
-FixedUpdate固定帧率更新
-DynamicUpdate当前帧率更新
-ManualUpdate不自动处理事件，更新InputSystem.Update时再处理
-
-过滤噪声
-默认禁用，只和.current有关，例如Gamepad.current
-如果不需要就关掉，避免造成额外开销
-设备上只要有输入，就会制造相应设备的current，例如，一个Gamepad接收到新的输入
-Gamepad.current分配给该手柄
-某些设备可能有噪声，即使没有任何交互，也会接收输入，例如，PS4DualShock陀螺仪
-可产生恒定电流，如果同时插了xbox和ps4控制器，ps4就会不断将自己推上前端，挤掉xbox
-这时，使用过滤噪声，系统自动确定InputControl.noise
-该系统目前无法检测到大多数形式的噪音，但可以检测到游戏手柄的噪音，
-
-补偿屏幕方向
-用不着
-
-默认值属性
-手柄用
-
-支持的设备
-如果是空，没有任何限制，可以接收任何设备
-如果包含一到多个设备，仅仅使用列表中的设备
-
-覆盖编辑器
-在编辑器中，可能想使用应用程序不支持的设备
-Window > Analysis > Input Debugger
-Options > Add Devices Not Listed in Supported Devices
-
-其他更为复杂的，见文档
-```
-
 ---
 
 

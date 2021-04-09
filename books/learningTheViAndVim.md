@@ -1,6 +1,7 @@
 ### [<主页](/index.html)
 
 # Learning the vi and Vim Editors
+## 学习Vi和Vim编辑器
 
 ### 文本编辑
 ```markdown

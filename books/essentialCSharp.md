@@ -77,18 +77,6 @@ __refvalue
 ```
 // TODO
 ```
----
-## CLR via C#
-
-```c#
-//TODO
-```
----
-## C# in Depth
-
-```c#
-//TODO
-``
 
 ---
 
