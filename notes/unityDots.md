@@ -895,7 +895,7 @@ public class DynamicBufferJobSystem : SystemBase {
         // Create a query to find all entities with a dynamic buffer
         // containing MyBufferElement
         EntityQueryDesc queryDescription = new EntityQueryDesc();
-        queryDescription.Add = new[] {ComponentType.ReadOnly<MyBufferElement>()};
+        queryDescription.All = new[] {ComponentType.ReadOnly<MyBufferElement>()};
         query = GetEntityQuery(queryDescription);
     }
 
@@ -946,7 +946,7 @@ public class DynamicBufferJobSystem : SystemBase {
         // Schedule the second job, which depends on the first
         SumResult finalSumJob = new SumResult();
         finalSumJob.sums = intermediateSums;
-        NativeArray<int> finalSum = new NativeArray<int>(1, Allocator.Temp);
+        NativeArray<int> finalSum = new NativeArray<int>(1, Allocator.TempJob);
         finalSumJob.result = finalSum;
         this.Dependency = finalSumJob.Schedule(this.Dependency);
 
