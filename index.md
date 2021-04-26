@@ -3,6 +3,13 @@
 文章遵从 “署名-非商业性使用-禁止演绎” 协议
 [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.zh)
 
+## 自选集
+
+#### [画栏雕梦自选](./poems/carvingJade.md)
+#### [雨窗集自选](./poems/yuChuang.md)
+
+---
+
 ## 新体诗 画栏雕梦
 
 #### [杜鹃篇](./poems/carvingJade_I.md)
