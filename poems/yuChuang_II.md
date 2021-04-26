@@ -1,6 +1,6 @@
 ![carvingJade](/images/carvingJade.png)
 
-### [<目录](./yuChuangIndex.md)
+### [<目录](/index.html)
 
 # 雨窗集
 
@@ -272,4 +272,4 @@
 ---
 
 
-## [<目录](./yuChuangIndex.md)
+## [<目录](/index.html)

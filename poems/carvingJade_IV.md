@@ -1,6 +1,6 @@
 ![carvingJade](/images/carvingJade.png)
 
-### [<目录](./carvingJadeIndex.md)
+### [<目录](/index.html)
 
 # 画栏雕梦
 
@@ -1030,4 +1030,4 @@
 ---
 
 
-## [<目录](./carvingJadeIndex.md)
+## [<目录](/index.html)
