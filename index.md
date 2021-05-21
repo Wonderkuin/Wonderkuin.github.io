@@ -35,4 +35,8 @@
 #### [残句编](./poems/yuChuang_VII.md)
 
 ---
+
+## [千古诗绝](./poems/qgsj.md)
+
+---
 ## [博客](https://wonderkuin.gitee.io/)
