@@ -35,4 +35,3 @@
 #### [残句编](./poems/yuChuang_VII.md)
 
 ---
-## [博客](https://wonderkuin.gitee.io/)
