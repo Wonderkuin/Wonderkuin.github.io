@@ -1,6 +1,6 @@
 ![carvingJade](/images/carvingJade.png)
 
-文章遵从 “署名-非商业性使用-禁止演绎” 协议
+**文章遵从 “署名-非商业性使用-禁止演绎” 协议**
 [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.zh)
 
 ## 自选集
@@ -35,3 +35,5 @@
 #### [残句编](./poems/yuChuang_VII.md)
 
 ---
+
+# [博客](./blog_index.md)
