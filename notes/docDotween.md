@@ -1,48 +1,36 @@
 # DOTween
 ### [官方文档](http://dotween.demigiant.com/documentation.php)
-
----
-
-```c#
-using DG.Tweening;
-```
-
-[Ease参考](https://easings.net/cn)
+### [Ease参考](https://easings.net/)
 
 ---
 
 ## 类型
 
+```
 [Tweener]() 控制动画的值
-
 [Sequence]() 控制Tweener
-
 [Tween]() 代表上面两种
-
 [Nested Tween]() Sequence内部嵌套的Tween
-
+```
 
 ---
 
 ## 前缀
 
-[DO]() 所有Tween方法的前缀
-
 ```c#
+[DO]() 所有Tween方法的前缀
 transform.DOMoveY(100, 1);
 transform.DORestart();
 DOTween.Play();
 ```
 
-[Set]() Tween对象的设置，除了Form
-
 ```c#
+[Set]() Tween对象的设置，除了Form
 myTween.SetLoops(4, LoopType.Yoyo).SetSpeedBased();
 ```
 
-[On]() Tween对象的回调
-
 ```c#
+[On]() Tween对象的回调
 myTween.OnStart(myStartFunction).OnComplete(myCompleteFunction);
 ```
 
@@ -50,11 +38,12 @@ myTween.OnStart(myStartFunction).OnComplete(myCompleteFunction);
 
 ## 初始化
 
+```
 使用DOTween提供的global settings初始化Tween对象
 
 可以在初始化使用SetCapacity，设置最大容量，等同于 DOTween.SetTweensCapacity
 
-> static DOTween.Init(bool recycleAllByDefault = false, bool useSafeMode = true,  LogBehaviour logBehaviour = LogBehaviour.ErrorsOnly)  
+> static DOTween.Init(bool recycleAllByDefault = false, bool useSafeMode = true,  LogBehaviour logBehaviour = LogBehaviour.ErrorsOnly)
 `DOTween.Init();`  
 `DOTween.Init(true, true, LogBehaviour.Verbose).SetCapacity(200, 10);`  
 
@@ -69,6 +58,7 @@ myTween.OnStart(myStartFunction).OnComplete(myCompleteFunction);
 
 > logBehaviour
 >> DOTween记录报错的等级
+```
 
 ---
 

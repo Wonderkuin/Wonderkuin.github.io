@@ -1,4 +1,4 @@
-![ghost](./images/ghost.png)![lambda](./images/lambda.png)![ghost](./images/ghost.png)
+![ghost](./images/ghost.png)![lambda](./images/lambda.png)
 
 **文章遵从 “署名-非商业性使用-禁止演绎” 协议**
 [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.zh)
@@ -7,10 +7,13 @@
 ### Top
 
 #### [单词表](./notes/noteWords.md)
-#### [剑与电 角色扮演游戏设计艺术](./books/SwordsAndCircuitry.md)
-#### [体验引擎 游戏设计指南](./books/EngineeringExperiences.md)
 #### [Unity游戏优化](./books/Unity2017GameOptimization.md)
 #### [C#多线程编程实战](./books/cSharpMultiThreadCookbook.md)
+
+<br/>
+
+#### [剑与电 角色扮演游戏设计艺术](./books/SwordsAndCircuitry.md)
+#### [体验引擎 游戏设计指南](./books/EngineeringExperiences.md)
 
 <br/>
 
@@ -77,3 +80,5 @@
 #### [Unity DOTS 文档](./notes/unityDots.md)
 #### [Unity InputSystem](./notes/unityInputSystem.md)
 #### [Dotween 文档](./notes/docDotween.md)
+#### [ReSharper 快捷键](./notes/docReSharper.md)
+#### [Unity Doc 笔记](./notes/unityDoc.md)
