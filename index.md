@@ -33,7 +33,3 @@
 #### [集外集](./poems/yuChuang_V.md)
 #### [浮尘集](./poems/yuChuang_VI.md)
 #### [残句编](./poems/yuChuang_VII.md)
-
----
-
-# [博客](./blog_index.md)
